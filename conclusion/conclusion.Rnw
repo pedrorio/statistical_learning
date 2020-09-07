@@ -1,0 +1,10 @@
+<<conclusion_parent, echo=FALSE, cache=FALSE>>=
+set_parent('main.Rnw')
+@
+
+The classification of wines in high and low qualities makes it easier for anyone to predict the quality of the wine and make better decisions regarding its consumption. Producers can also use these models and methodologies to direct their crops and transformation processes to wines that are able to attain a better quality class and retailers will be able
+to be more selective in the wines they sell, which with comparable prices lead to an improvement in sales, inventory turnover and net working capital.
+
+Nevertheless, the analysis holds for green wines from the red variety, so the analysis should be repeated in datasets containing wines from other types of wine. Furthermore, the data was collected in a certain point in time, so new observations should be taken periodically in order to ensure that the validity of this analysis still holds.
+
+A possible direction that can improve the results in future analysis is the use of non linear principal component, model bagging and stacking and also more recent methods of machine learning.

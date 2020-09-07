@@ -1,0 +1,115 @@
+<<classification_and_discrimination_parent, echo=FALSE, cache=FALSE>>=
+set_parent('main.Rnw')
+@
+
+<<echo=FALSE, cache=FALSE>>=
+read_chunk("classification_and_discrimination.R")
+@
+
+<<setup_in_classification_and_discrimination, echo=FALSE, include=FALSE, cache=FALSE>>=
+@
+
+The classification uses several methods, from generalised logistic regression,
+support vector machines to linear and flexible discrimination analysis and the models are trained on 80\% 
+of the data, with hyper parameterisation in a 10 fold cross-validation repeated over 10 times.
+
+<<fits_in_classification_and_discrimination, echo=FALSE, include=FALSE, cache=FALSE>>=
+@
+
+\subsubsection{Generalised Logistic Regression}\label{subsubsec:preliminary-generalised-logistic-regression}
+
+<<plot_lr_params_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE, out.width='.32\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Logistic regression hyper parameter grid', fig.pos='!htb'>>=
+@
+
+An elastic-net logistic regression classifies the dataset, with an accuracy of
+<<lr_fd_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+, using a penalty of 1 and a mixture of 50\% lasso and 50\% ridge regularisation.
+In the standardised dataset the accuracy is
+<<lr_sfd_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+using a penalty of 1e-10 and a mixture of 25\% lasso and 75\% ridge regularisation.
+Regarding the standardised principal components, the accuracy is
+<<lr_sfpc_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+with a penalty of 1e-10 and a mixture of 50\% lasso and 50\% ridge regularisation.
+
+
+\subsubsection{Support Vector Machines with Polynomial Kernel}\label{subsubsec:support-vector-machines-with-polynomial-kernel}
+
+<<plot_svm_poly_params_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE, out.width='.32\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Support vector machine with polinomial kernel hyper parameter grid', fig.pos='!htb'>>=
+@
+
+A support vector machine with polynomial kernel generates an accuracy of
+<<svm_poly_fd_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+in the datase with a cost of 9.77e-4, a degree of 2 and a scale factor of 0.1.
+In the case of the standardised dataset, the accuracy is 
+<<svm_poly_sfd_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+with a cost of 0.5, a degree of 3 and with scale factor of also 0.1.
+Using the standardised principal components, this method attains an accuracy of 
+<<svm_poly_sfpc_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+, again with a cost of 0.5, a degree of 1 and once more a scale factor of 0.1
+
+\subsubsection{Support Vector Machines with Radial Kernel}\label{subsubsec:support-vector-machines-with-radial-kernel}
+
+<<plot_svm_radial_params_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE, out.width='.32\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Support vector machine with radial kernel hyper parameter grid', fig.pos='!htb'>>=
+@
+
+In the dataset, the application of a support vector machine with a radial kernel generates an accuracy of
+<<svm_radial_fd_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+, using a cost of 0.0221 and a radial basis function sigma of 0.0031.
+Using the standardized dataset, the accuracy is
+<<svm_radial_sfd_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+, with a cost of 0.5 and a radial basis function sigma of 0.00316.
+Applying this method to the standardised principal components allows an accuracy of
+<<svm_radial_sfpc_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+, with a cost of 0.105 and a radial basis function sigma of also 0.00316.
+
+\subsubsection {Linear Discriminant Analysis}\label{subsubsec:linear-discriminant-analysis}
+
+<<plot_lda_params_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE, out.width='.32\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Linear discriminant analysis hyper parameter grid', fig.pos='!htb'>>=
+@
+
+Using a linear discriminant analysis in the dataset generates an accuracy of 
+<<lda_fd_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+with a penalty of 1e-10 and ridge regularisation.
+In the case of the standardised dataset, achieves an accuracy of
+<<lda_sfd_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+, also with a penalty of 1e-10 and ridge regularisation.
+The accuracy in the standardised principal components is
+<<lda_sfpc_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+, once more with a penalty of 1e-10 and ridge regularisation.
+
+\subsubsection {Flexible Discriminant Analysis}\label{subsubsec:flexible-discriminant-analysis}
+
+<<plot_fda_params_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE, out.width='.32\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Flexible discriminant analysis hyper parameter grid', fig.pos='!htb'>>=
+@
+
+Applying a flexible discriminant analysis achieves an accuracy of
+<<fda_fd_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+in the case of the dataset, with 11 terms retained in the model and a maximum degree of interaction of 1.
+In the standardised dataset, the model attains an acuracy of
+<<fda_sfd_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+, with 5 terms retained and also a maximum interaction degree of 1.
+Using the model in the standard principal components achieves an accuracy of
+<<fda_sfpc_accuracy_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+, with 6 terms retained and a maximum interaction degree of 1.
+
+\subsubsection{Comparison of the results}\label{subsubsec:comparison-of-the-results}
+
+<<accuracy_comparison_table_in_classification_and_discrimination, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+
+The results in table \ref{tab:accuracy_comparison_table_in_classification_and_discrimination} show that the dataset leads to better testing accuracies in most cases and in particular using support a vector machine with a radial kernel, a logistic regression and also a flexible discriminant analysis. This is expected as looking into the bivariate density plots of both the dataset and the standardised principal components suggests a mixture of different distributions for the high and low quality classes so a non linear transformation will lead to a projection that will be able to better separate the classes.

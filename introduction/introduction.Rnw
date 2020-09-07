@@ -1,0 +1,13 @@
+<<introduction_parent, echo=FALSE, cache=FALSE>>=
+set_parent('main.Rnw')
+@
+
+Several classification methods are used in this report with the objective of selecting high quality wines
+from a dataset\cite{Dataset} that incorporates information regarding the quality and chemical composition of several green wine 
+samples of the red variety from the north of Portugal.
+
+In the dataset description and exploration, some differences between high and low quality wines are discussed, as well as moderate correlations between some of the variales. For each class, outliers are identified and winsorised, producing a clean dataset. That dataset, its standardisation and the top standardised principal components extracted from it are all used in the classification task.
+
+Several models are used in the classification, ranging from logistic regressions, support vector machines with a polynomial and with a radial kernel, linear discriminant analysis and flexible discriminant analysis. In each method, the training data is used to fit and optimise the model parameters. Afterwards, each model's performance is computed in the testing data and the best model is selected.
+
+Finally, the results obtained are discussed, future work is proposed and final considerations are presented.

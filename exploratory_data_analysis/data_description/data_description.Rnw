@@ -1,0 +1,50 @@
+<<data_description_parent, echo=FALSE, cache=FALSE>>=
+set_parent('main.Rnw')
+@
+<<echo=FALSE, cache=FALSE>>=
+read_chunk("data_description.R")
+@
+
+<<setup_in_data_description, echo=FALSE, include=FALSE, cache=FALSE>>=
+@
+
+<<load_raw_data_in_data_description, echo=FALSE, include=FALSE, cache=FALSE>>=
+@
+
+This dataset contains 1599 observations and no missing values in eleven chemical features and a quality assessments for green wine samples of the red variety from the north of Portugal.
+These variables are fixed acidity ($g_{tartaric\ acid}/dm^3$), volatile acidity ($g_{acetic\ acid}/dm^3$),
+citric acid ($g/dm^3$), residual sugar ($g/dm^3$), chlorides ($g_{sodium\ chloride}/dm^3$),
+free sulfur dioxide ($mg/dm^3$), total sulfur dioxide ($mg/dm^3$), density ($g/dm^3$), pH,
+sulphates ($g_{potassium\ sulphate}/dm^3$) and alcohol  ($vol.\%$) and the quality assessment is the median of at 
+least 3 quality assessments from different enologists in a score from 0 to 10.
+
+
+<<count_plots_of_raw_and_recoded_quality_factors_in_data_description, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Observation counts per quality class', fig.pos='!htb' >>=
+@
+
+As the goal of the project is the classification of wines in good and bad qualities, the quality factor will be consolidated into
+a simpler factor with a low quality class from classes 3, 4, 5 and 6 and a high quality class from classes 7 and 8. 
+Nevertheless, the quality classes remain quite unbalanced, with 1382 belonging to the low quality class and only 217 to the high quality class, which will give more weight to the results of the class with the highest number of observations if this is not taken into consideration.
+
+Noticeable from 
+figures \ref{fig:plots_of_alcohol_per_quality_class_in_data_description} to \ref{fig:plots_of_volatile_acidity_per_quality_class_in_data_description}, the distributions of alcohol, sulphates, density, volatile acidity and fixed acidity per quality class are different and that on average wines with high quality have more alcohol, sulphates and fixed acidity and less density and volatile acidity.
+
+<<plots_of_alcohol_per_quality_class_in_data_description, dev=c('png', 'pdf'), warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Alcohol distribution per quality class', fig.pos='!htb'>>=
+@
+
+<<plots_of_sulphates_per_quality_class_in_data_description, dev=c('png', 'pdf'), warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Sulphates distribution per quality class', fig.pos='!htb'>>=
+@
+
+<<plots_of_fixed_acidity_per_quality_class_in_data_description, dev=c('png', 'pdf'), warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Fixed acidity distribution per quality class', fig.pos='!htb'>>=
+@
+
+<<plots_of_density_per_quality_class_in_data_description, dev=c('png', 'pdf'), warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Density distribution per quality class', fig.pos='!htb'>>=
+@
+
+<<plots_of_volatile_acidity_per_quality_class_in_data_description, dev=c('png', 'pdf'), warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Volatile acidity distribution per quality class', fig.pos='!htb'>>=
+@
+
+Figure \ref{fig:correlation_plot_of_data_in_data_description} suggests that the correlation between variables is moderately high with a maximum absolute value of the correlation coefficient of 0.7, positive between fixed acidity and citric acid, fixed acidity and density, free sulfur dioxide and total sulfur dioxide and negative between fixed acidity and pH. Given the absolute value of the correlation coefficient, some care must be taken to preserve the assumption of no multicolinearity that some classification models make and remove variables that have a high correlation or that can be explained with linear combinations of other variables.
+
+<<correlation_plot_of_data_in_data_description, dev=c('png', 'pdf'), message=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.65\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Correlation among variables', fig.pos='!htb'>>=
+@

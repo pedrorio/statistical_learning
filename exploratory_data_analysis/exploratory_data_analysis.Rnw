@@ -1,0 +1,15 @@
+<<exploratory_data_analysis_parent, echo=FALSE, cache=FALSE>>=
+set_parent('main.rnw')
+@
+
+\subsection{Data description}\label{subsec:data-description}
+<<data_description, child='data_description/data_description.Rnw'>>=
+@
+
+\subsection{Outlier Detection}\label{subsec:outlier-detection}
+<<outlier_detection, child='outlier_detection/outlier_detection.Rnw', cache=FALSE>>=
+@
+
+\subsection{Data Reduction}\label{subsec:data-reduction}
+<<data_reduction, child='data_reduction/data_reduction.Rnw', cache=FALSE>>=
+@

@@ -1,0 +1,27 @@
+<<data_processing_outlier_detection_parent, echo=FALSE, cache=FALSE>>=
+set_parent('main.Rnw')
+@
+
+<<echo=FALSE, cache=FALSE>>=
+read_chunk("outlier_detection.R")
+@
+
+<<setup_in_outlier_detection, echo=FALSE, include=FALSE, cache=FALSE>>=
+@
+
+<<load_recoded_data_in_outlier_detection, echo=FALSE, include=FALSE, cache=FALSE>>=
+@
+
+As presented in figure~\ref{fig:outlier_detection_plot_before_winsorisation_in_outlier_detection}, both classes of wine quality display the existence of outliers that are identified through the score and orthogonal distance to the origin in the robust principal components space~\cite{Hubert}.
+
+
+<<outlier_detection_plot_before_winsorisation_in_outlier_detection, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Outlier detection per quality class', fig.pos='!htb' >>=
+@
+
+Each class was subsequentially winsorised~\cite{Hastings} in order to minimize the influence of extreme values without removing them, leading to the results in figure~\ref{fig:outlier_detection_plot_after_winsorisation_in_outlier_detection}.
+
+<<outliers_winsorisation_per_quality_class_in_outlier_detection, echo=FALSE, include=FALSE, cache=FALSE>>=
+@
+
+<<outlier_detection_plot_after_winsorisation_in_outlier_detection, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Outlier detection per quality class after winsorisation', fig.pos='!htb' >>=
+@

@@ -1,0 +1,12 @@
+source("./flexible_discriminant_analysis.R")
+source("./linear_discriminant_analysis.R")
+source("./logistic_regression.R")
+source("./naive_bayes.R")
+source("./regularised_discriminant_analysis.R")
+source("./support_vector_machine_with_polynomial_kernel.R")
+source("./support_vector_machine_with_radial_kernel.R")
+
+# model_specs <- list(lr, svm_poly, svm_radial, lda, nb, fda, rda)
+model_specs <- list(lr, svm_poly, svm_radial, lda, fda)
+# model_specs <- list(lda, fda)
+# model_specs <- list(lr, svm_poly, svm_radial)

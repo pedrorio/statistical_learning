@@ -1,0 +1,8 @@
+cache
+**/clustering
+figure
+**/caret.*
+**/mlr3.*
+.Rprofile
+renv
+results

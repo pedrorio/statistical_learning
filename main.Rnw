@@ -1,0 +1,91 @@
+\documentclass[titlepage]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{indentfirst}
+\usepackage{lipsum}
+\usepackage{amsmath}
+\usepackage[margin=1in]{geometry}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{tikz}
+\usetikzlibrary{graphs}
+\usetikzlibrary{chains}
+\usetikzlibrary{positioning}
+\usetikzlibrary{quotes}
+\numberwithin{figure}{section}
+\numberwithin{table}{section}
+\usepackage{booktabs}
+\usepackage{tikz-network}
+\pagestyle{fancy}
+
+\fancyhead{}
+\lhead{\includegraphics[scale=0.13]{images/logo.png}}
+\rhead{Statistical Learning \\ 2019/2020\footnotesize}
+
+\fancyfoot[LE,RO]{Page \thepage}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1em}
+
+\date{}
+\title{
+    \includegraphics[scale=0.3]{images/logo.png}\\
+    \vskip 0.5em
+    \Huge How to pick good wine\\
+    \LARGE Quality classification\\
+    \vskip 0.5em
+}
+
+\author{
+    Pedro Rio\\
+    \textit{MSc Data Science and Engineering}\\
+    \textit{Instituto Superior Técnico}\\
+    \textit{97241}
+}
+\begin{document}
+
+    <<setup, echo=FALSE, cache=FALSE >>=
+    library(knitr)
+    @
+
+    \maketitle
+    \cleardoublepage
+
+    \fancyfoot{}
+    \onecolumn
+    \tableofcontents
+    \cleardoublepage
+
+    \setcounter{page}{1}
+    \fancyfoot[LE,RO]{Page \thepage}
+
+
+    \section{Introduction}\label{sec:introduction}
+    <<introduction, child='introduction/introduction.Rnw'>>=
+    @
+
+    \section{Exploratory data analysis}\label{sec:exploratory-data-analysis}
+    <<exploratory_data_analysis, child='exploratory_data_analysis/exploratory_data_analysis.Rnw'>>=
+    @
+
+    \section{Classification and discrimination}\label{sec:classification}
+    <<classification_and_discrimination, child='classification_and_discrimination/classification_and_discrimination.Rnw'>>=
+    @
+
+    \section{Conclusion}\label{sec:conclusion}
+    <<conclusion, child='conclusion/conclusion.Rnw'>>=
+    @
+
+    \cleardoublepage~\nocite{*}
+    \fancyfoot{}
+
+    \bibliography{bib}
+    \bibliographystyle{unsrt}
+
+    \cleardoublepage
+
+    \listoffigures
+    \listoftables
+
+\end{document}

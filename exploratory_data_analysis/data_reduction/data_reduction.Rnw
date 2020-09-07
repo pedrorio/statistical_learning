@@ -1,0 +1,30 @@
+<<data_reduction_parent, echo=FALSE, cache=FALSE>>=
+set_parent('main.Rnw')
+@
+
+<<echo=FALSE, cache=FALSE>>=
+read_chunk("data_reduction.R")
+@
+
+<<setup_in_data_reduction, echo=FALSE, include=FALSE, cache=FALSE>>=
+@
+
+<<compute_the_top_standard_principal_components_in_data_reduction, echo=FALSE, include=FALSE, cache=FALSE>>=
+@
+
+As there are significant differences in the range of values of each variable with the total sulfur dioxide having a range of 283 $mg/dm^3$ while density has a range of 0.01 $g/dm^3$, it becomes necessary to standardise the dataset so all the variables can contribute proportionally in the prediction.
+For this reason, the classification tasks will also use a scaled and centered dataset.
+
+Another dataset transformation used in the classification models is the principal component extraction, with the objective of reducing the dimensionality of the data.
+In this case, as outliers were previously identified and treated, the classical standardised principal components were computed instead of the standardised robust principal components. The analysis presented in table \ref{tab:top_standard_principal_components_table_in_data_reduction} suggests that the first 
+<<last_standard_principal_component_index_in_data_reduction, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+principal components explain 
+<<last_standard_principal_component_percentage_explained_in_data_reduction, results = 'asis', echo=FALSE, cache=FALSE>>=
+@
+of the variance in the sample and the variables that most contribute to each principal component are presented in figure \ref{fig:plot_top_standard_principal_components_loadings_contribution_in_data_reduction}.
+
+<<top_standard_principal_components_table_in_data_reduction, results = 'asis', echo=FALSE, cache=FALSE, fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Informed Explained variability of the standard classical principal components', fig.pos='!htb' >>=
+@
+
+<<plot_top_standard_principal_components_loadings_contribution_in_data_reduction, results = 'asis', echo=FALSE, cache=FALSE, out.width='.64\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Top principal component loadings contribution', fig.pos='!htb'>>=
