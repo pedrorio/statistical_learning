@@ -4,7 +4,8 @@ data_description_packages <- c(
 	"knitr", 
 	"kableExtra", 
 	"forcats",
-	"data.table"
+	"data.table",
+	"matlib"
 	)
 
 exploratory_data_analysis_packages <- c(
