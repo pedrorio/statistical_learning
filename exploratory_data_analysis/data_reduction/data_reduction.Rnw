@@ -28,3 +28,4 @@ of the variance in the sample and the variables that most contribute to each pri
 @
 
 <<plot_top_standard_principal_components_loadings_contribution_in_data_reduction, results = 'asis', echo=FALSE, cache=FALSE, out.width='.64\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Top principal component loadings contribution', fig.pos='!htb'>>=
+@

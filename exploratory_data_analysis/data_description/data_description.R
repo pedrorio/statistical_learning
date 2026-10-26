@@ -1,5 +1,4 @@
 ## ---- setup_in_data_description
-invisible(source('../../libraries.R', chdir = TRUE))
 
 ## ---- load_raw_data_in_data_description
 data <- load_raw_data("../../data/winequality-red.csv")

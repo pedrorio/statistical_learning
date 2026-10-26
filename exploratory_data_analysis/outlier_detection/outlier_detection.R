@@ -1,5 +1,4 @@
 ## ---- setup_in_outlier_detection
-invisible(source("../../libraries.R", chdir = TRUE))
 
 ## ---- load_recoded_data_in_outlier_detection
 data <- load_recoded_data("../../data/winequality-red.csv", "quality")

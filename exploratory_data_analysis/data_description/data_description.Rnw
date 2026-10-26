@@ -29,22 +29,22 @@ Nevertheless, the quality classes remain quite unbalanced, with 1382 belonging t
 Noticeable from 
 figures \ref{fig:plots_of_alcohol_per_quality_class_in_data_description} to \ref{fig:plots_of_volatile_acidity_per_quality_class_in_data_description}, the distributions of alcohol, sulphates, density, volatile acidity and fixed acidity per quality class are different and that on average wines with high quality have more alcohol, sulphates and fixed acidity and less density and volatile acidity.
 
-<<plots_of_alcohol_per_quality_class_in_data_description, dev=c('png', 'pdf'), warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Alcohol distribution per quality class', fig.pos='!htb'>>=
+<<plots_of_alcohol_per_quality_class_in_data_description, warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Alcohol distribution per quality class', fig.pos='!htb'>>=
 @
 
-<<plots_of_sulphates_per_quality_class_in_data_description, dev=c('png', 'pdf'), warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Sulphates distribution per quality class', fig.pos='!htb'>>=
+<<plots_of_sulphates_per_quality_class_in_data_description, warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Sulphates distribution per quality class', fig.pos='!htb'>>=
 @
 
-<<plots_of_fixed_acidity_per_quality_class_in_data_description, dev=c('png', 'pdf'), warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Fixed acidity distribution per quality class', fig.pos='!htb'>>=
+<<plots_of_fixed_acidity_per_quality_class_in_data_description, warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Fixed acidity distribution per quality class', fig.pos='!htb'>>=
 @
 
-<<plots_of_density_per_quality_class_in_data_description, dev=c('png', 'pdf'), warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Density distribution per quality class', fig.pos='!htb'>>=
+<<plots_of_density_per_quality_class_in_data_description, warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Density distribution per quality class', fig.pos='!htb'>>=
 @
 
-<<plots_of_volatile_acidity_per_quality_class_in_data_description, dev=c('png', 'pdf'), warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Volatile acidity distribution per quality class', fig.pos='!htb'>>=
+<<plots_of_volatile_acidity_per_quality_class_in_data_description, warning=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.49\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Volatile acidity distribution per quality class', fig.pos='!htb'>>=
 @
 
 Figure \ref{fig:correlation_plot_of_data_in_data_description} suggests that the correlation between variables is moderately high with a maximum absolute value of the correlation coefficient of 0.7, positive between fixed acidity and citric acid, fixed acidity and density, free sulfur dioxide and total sulfur dioxide and negative between fixed acidity and pH. Given the absolute value of the correlation coefficient, some care must be taken to preserve the assumption of no multicolinearity that some classification models make and remove variables that have a high correlation or that can be explained with linear combinations of other variables.
 
-<<correlation_plot_of_data_in_data_description, dev=c('png', 'pdf'), message=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.65\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Correlation among variables', fig.pos='!htb'>>=
+<<correlation_plot_of_data_in_data_description, message=FALSE, results = 'asis', echo=FALSE, cache=FALSE, out.width='.65\\linewidth', fig.show='hold', fig.align='center', fig.lp="fig:", fig.cap = 'Correlation among variables', fig.pos='!htb'>>=
 @

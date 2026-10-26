@@ -1,3 +1,4 @@
+source("./read_fit_summaries.R")
 source("./accuracy_table.R")
 
 source("./get_model.R")

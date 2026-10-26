@@ -3,7 +3,13 @@ cache
 figure
 **/caret.*
 **/mlr3.*
-.Rprofile
-renv
 results
 exercises
+build/
+
+renv/library/
+renv/local/
+renv/cellar/
+renv/lock/
+renv/python/
+renv/staging/
