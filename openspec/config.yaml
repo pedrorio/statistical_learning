@@ -1,0 +1,17 @@
+schema: spec-driven
+
+context: |
+  R course project that classifies red Vinho Verde wines. The behaviour contract is openspec/specs/wine-classification-pipeline/spec.md and the narrative context is openspec/project.md.
+  Do not change modelling behaviour, recipes, splits, metrics, or reported numbers unless a change proposal explicitly modifies those requirements.
+  Tooling changes (dependencies, ignore rules, build entry points, CI, README) must leave the fitted pipeline equivalent.
+
+rules:
+  proposal:
+    - State whether modelling results are allowed to change. Default is they are not.
+    - Name the capability paths that will gain delta specs.
+  specs:
+    - Describe observable pipeline behaviour. Keep each requirement description under 500 characters.
+    - One scenario minimum per requirement, using SHALL or MUST and #### Scenario with WHEN and THEN.
+  tasks:
+    - Checkbox tasks only for work this change will implement.
+    - Do not schedule modelling edits in a tooling change.
