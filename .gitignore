@@ -3,7 +3,9 @@ cache
 figure
 **/caret.*
 **/mlr3.*
-results
+results/*
+!results/reevaluation/
+!results/reevaluation/**
 exercises
 build/
 
