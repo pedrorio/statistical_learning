@@ -3,7 +3,30 @@ cache
 figure
 **/caret.*
 **/mlr3.*
-.Rprofile
-renv
 results
+
+# renv standard ignores (library and caches stay local; lockfile and activate.R stay tracked)
+renv/library/
+renv/local/
+renv/cellar/
+renv/lock/
+renv/python/
+renv/sandbox/
+renv/staging/
 exercises
+
+# knitr / LaTeX products
+main.pdf
+main.tex
+*.aux
+*.log
+*.toc
+*.out
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.lof
+*.lot
+*.xdv
