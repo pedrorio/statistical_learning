@@ -112,10 +112,25 @@ fit_combinations <- function() {
       train_data,
       data_split
     )
+    metrics <- full$test$metrics
+    accuracy <- if (is.null(metrics)) numeric() else metrics$.estimate[metrics$.metric == "accuracy"]
+    if (length(accuracy) != 1 || !is.finite(accuracy[[1]])) {
+      message(sprintf(
+        "No test accuracy for %s / %s; the final fit produced no predictions",
+        job$combo$model_config$tag,
+        job$combo$recipe_config$tag
+      ))
+      metrics <- tibble::tibble(
+        .metric = "accuracy",
+        .estimator = "binary",
+        .estimate = NA_real_,
+        .config = NA_character_
+      )
+    }
     summary <- list(
       model_config = list(tag = full$model_config$tag, name = full$model_config$name),
       recipe_config = list(tag = full$recipe_config$tag, name = full$recipe_config$name),
-      test = list(metrics = full$test$metrics),
+      test = list(metrics = metrics),
       best = list(result = full$best$result),
       plot = full$plot
     )

@@ -13,6 +13,7 @@ A fresh clone cannot rebuild the report. Fitting runs inside the knit, so every 
 - Render each figure with knitr's default single device. Replace the `knit2pdf` plus six LaTeX passes with `knitr::knit` and one `latexmk -pdf`, writing `build/main.pdf`.
 - Commit `renv.lock`, `renv/activate.R`, and `.Rprofile`. Fix `ssource`. Create `results/` when fitting. Replace `recipes::terms_select` with `recipes::recipes_eval_select`.
 - Keep the same model settings on current packages: syntactic names via `make.names` (`janitor::set_tidy_names` is gone), discriminant specifications from `parsnip`, `select_best(metric = "accuracy")`, and `step_pca(..., options = list(...))`. Workers tune with `allow_par = FALSE` so the only parallelism is the combination-level `mclapply`.
+- Read the accuracy row from `last_fit` (current tune also returns ROC AUC and Brier). The comparison table is built in-process. If a final fit produces no predictions, that cell is `NA`. With seed 2020 this happens for flexible discriminant analysis on the standardised recipe: `num_terms = 1`, `prod_degree = 1`, and earth reports no terms component.
 - Modelling results are allowed to differ from graded Table 3.1 because the fit is seeded and the packages are current. The split (80%, not stratified), the accuracy metric, winsorising at 0.999, ROSE, the grids, and the 10 by 10 stratified CV do not change. The committed `main.pdf` is not replaced.
 
 ## Capabilities

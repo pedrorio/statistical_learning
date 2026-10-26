@@ -45,7 +45,7 @@
 }
 \begin{document}
 
-    <<setup, echo=FALSE, cache=FALSE >>=
+    <<setup, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE >>=
     source("libraries.R")
     @
 
