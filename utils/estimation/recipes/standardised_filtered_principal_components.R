@@ -11,7 +11,7 @@ sfpc <- function(train_data, outcome_variable) {
 								recipes::step_corr(threshold = 0.80, recipes::all_numeric()) %>%
 								recipes::step_lincomb(recipes::all_numeric()) %>%
 								step_winsorise(recipes::all_numeric()) %>% 
-								recipes::step_pca(recipes::all_numeric(), threshold = .8, options = c(retx = TRUE, scale. = TRUE, center = TRUE)),
+								recipes::step_pca(recipes::all_numeric(), threshold = .8, options = list(retx = TRUE, scale. = TRUE, center = TRUE)),
 			name = "Standardised filtered principal components",
 			tag = "sfpc"
 		)

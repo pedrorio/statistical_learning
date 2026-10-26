@@ -25,7 +25,7 @@ pipeline <- function(model_config, recipe_config, metrics, selection_metric, tra
             )
     print("After results")
     # choose the params with the best metric
-    best_result <- results %>% tune::select_best(selection_metric)
+    best_result <- results %>% tune::select_best(metric = selection_metric)
     print("After best results")
     # update the params in the workflow
     best_workflow <- workflow %>% tune::finalize_workflow(best_result)

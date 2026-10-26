@@ -43,8 +43,8 @@ step_winsorise <- function(
 }
 
 prep.step_winsorise <- function(x, training, info = NULL, ...) {
-  predictor_col_names <- recipes::terms_select(info = info, x$terms)
-  outcome_col_names <- recipes::terms_select(info = info, recipes::all_outcomes())
+  predictor_col_names <- recipes::recipes_eval_select(x$terms, training, info)
+  outcome_col_names <- recipes::recipes_eval_select(quote(all_outcomes()), training, info)
   outcome_col_name <- outcome_col_names[1]
 
     step_winsorise_new(

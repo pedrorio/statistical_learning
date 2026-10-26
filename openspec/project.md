@@ -8,9 +8,9 @@ Can physicochemical measurements separate high-quality red wines from low-qualit
 
 ## Stack
 
-- R, sourced from `libraries.R` (no `DESCRIPTION`, no lockfile in the repository today).
+- R, sourced from `libraries.R`. `renv.lock` pins the package versions. `libraries.R` ends with the only `set.seed` call (`2020`).
 - tidymodels-style fitting: `recipes`, `parsnip`, `workflows`, `rsample`, `tune`, `yardstick`, `dials`, `discrim`, `themis`, plus the engines those models declare (`glmnet`, `kernlab`, `mda`, `earth`).
-- Report: knitr child documents rooted at `main.Rnw`, bibliography `bib.bib`, built by `knitr.zsh`. `main.pdf` is committed.
+- Report: knitr child documents rooted at `main.Rnw`, bibliography `bib.bib`, built by `make report`. `main.pdf` is a build product.
 - Helper entry point: `utils/estimation/test_pipeline.R` defines `test_pipeline()` and does not assert anything.
 
 ## Data
@@ -23,7 +23,7 @@ Can physicochemical measurements separate high-quality red wines from low-qualit
 
 1. `load_raw_data` reads a semicolon-separated file (`col_types` `dddddddddddf`), syntactic names, and adds a constant `type` factor `"red"`.
 2. `load_recoded_data` recodes `quality` 3–6 to `low` and 7–8 to `high`.
-3. When `results/classification_and_discrimination_fits.Rda` is absent, classification draws an 80/20 `initial_split` with no seed and no strata, then `vfold_cv` on the training rows only (`v = 10`, `repeats = 10`, `strata = quality`).
+3. When `results/classification_and_discrimination_fits.Rda` is absent, classification draws an 80/20 `initial_split` with no seed argument and no strata. `libraries.R` sets seed `2020` before that split. Folds are `vfold_cv` on the training rows only (`v = 10`, `repeats = 10`, `strata = quality`).
 4. Three unprepped recipes (`fd`, `sfd`, `sfpc`) are crossed with five active models (`lr`, `svm_poly`, `svm_radial`, `lda`, `fda`). Naive Bayes and regularised discriminant analysis are defined and not fitted.
 5. `tune::tune_grid` selects hyperparameters by accuracy on the training folds. `tune::last_fit` scores the selected workflow once on the split. The report prints that single test `.estimate`.
 6. Fits are saved with `saveRDS` and reused on the next knit.
