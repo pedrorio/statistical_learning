@@ -19,43 +19,83 @@ knitr::opts_chunk$set(
 library(dplyr)
 library(ggplot2)
 results_dir <- "results/reevaluation"
-metrics <- readRDS(file.path(results_dir, "metrics.rds"))
+original <- readRDS(file.path(results_dir, "metrics.rds"))
+added <- readRDS(file.path(results_dir, "metrics_added.rds"))
 baseline <- readRDS(file.path(results_dir, "baseline.rds"))
 run <- readRDS(file.path(results_dir, "run.rds"))
+run_added <- readRDS(file.path(results_dir, "run_added.rds"))
+original$cohort <- "original"
+original$pred_saved <- FALSE
+if (!"pr_auc" %in% names(original)) original$pr_auc <- NA_real_
+if (!"precision" %in% names(original)) original$precision <- NA_real_
+if (!"recall" %in% names(original)) original$recall <- NA_real_
+added$cohort <- "added"
+metrics <- bind_rows(original, added)
+if (nrow(metrics) != 140) stop("Expected 140 fits")
+metrics <- metrics %>%
+  mutate(
+    precision_show = if_else(!is.na(precision), precision, if_else(tp + fp > 0, tp / (tp + fp), NA_real_)),
+    recall_show = if_else(!is.na(recall), recall, if_else(tp + fn > 0, tp / (tp + fn), NA_real_))
+  )
+baseline$cohort <- "baseline"
+baseline$pred_saved <- FALSE
+baseline$precision_show <- NA_real_
+baseline$recall_show <- 0
 scores <- bind_rows(metrics, baseline)
-model_levels <- c("lr", "svm_poly", "svm_radial", "lda", "fda", "rf", "xgb", "guess_low")
-arm_levels <- c("rose", "weights", "none", "baseline")
-scores$model <- factor(scores$model, model_levels)
-scores$arm <- factor(scores$arm, arm_levels)
+arm_label <- c(
+  rose = "ROSE",
+  weights = "Class weights",
+  none = "No resampling",
+  score = "Score",
+  baseline = "Baseline"
+)
 fmt <- function(x) ifelse(is.finite(x), sprintf("%.3f", x), "NA")
-by_arm <- scores %>%
-  group_by(model, model_name, arm) %>%
+label_arm <- function(arm) {
+  out <- unname(arm_label[as.character(arm)])
+  if (anyNA(out)) stop("Unknown arm")
+  out
+}
+by_arm <- metrics %>%
+  group_by(model, model_name, arm, cohort) %>%
   summarise(
+    ok = all(status == "ok"),
+    unsupported = all(status == "unsupported"),
+    beats = all(status == "ok") && all(bal_accuracy > 0.5),
     mean_ba = mean(bal_accuracy),
     sd_ba = sd(bal_accuracy),
     min_ba = min(bal_accuracy),
     mean_auc = mean(roc_auc),
+    mean_pr = mean(pr_auc),
     mean_acc = mean(accuracy),
+    mean_precision = mean(precision_show),
+    mean_recall = mean(recall_show),
+    pred_saved = all(pred_saved %in% TRUE),
     tp = mean(tp),
     fp = mean(fp),
     tn = mean(tn),
     fn = mean(fn),
-    beats = isTRUE(all(status == "ok") && all(bal_accuracy > 0.5)),
     .groups = "drop"
   ) %>%
-  arrange(arm, model)
+  arrange(desc(mean_ba))
+show_num <- function(unsupported, value) {
+  ifelse(unsupported, "unsupported", fmt(value))
+}
 failed <- metrics %>% filter(status != "ok")
 @
 
 <<results, results="asis">>=
 hours <- run$wall_seconds / 3600
+added_hours <- run_added$total_seconds / 3600
 cat(sprintf(
-  "This note is a re-evaluation of the red-wine classifiers. It is not the graded conclusion, and the numbers below are not Table 3.1.\n\nFive stratified 80/20 splits, seeds %s, each scored once. Grid points are chosen by %d by %d cross-validated balanced accuracy, with high quality as the event. A row beats guessing low only when every split does. The fit took %.2f hours on %d cores.\n",
+  "This note is a re-evaluation of the red-wine classifiers. It is not the graded conclusion, and the numbers below are not Table 3.1.\n\nFive stratified 80/20 splits, seeds %s, each scored once. Grid points are chosen by %d by %d cross-validated balanced accuracy, with high quality as the event. A row beats guessing low only when every split does. The original fit took %.2f hours on %d cores.\n\nThe added LightGBM, fuller XGBoost, and score-model fits are %d outer jobs. Counting each job once, they took %.2f hours on %d cores. The planning estimate was 2.15 hours.\n",
   paste(run$seeds, collapse = ", "),
   run$v,
   run$repeats,
   hours,
-  run$cores
+  run$cores,
+  run_added$combinations,
+  added_hours,
+  run_added$cores
 ))
 @
 
@@ -63,18 +103,22 @@ cat(sprintf(
 shown <- by_arm %>%
   transmute(
     Model = model_name,
-    Arm = c(rose = "ROSE", weights = "Class weights", none = "No resampling", baseline = "Baseline")[as.character(arm)],
-    Mean = fmt(mean_ba),
-    SD = fmt(sd_ba),
-    Min = fmt(min_ba),
-    AUC = fmt(mean_auc),
-    Accuracy = fmt(mean_acc),
+    Arm = label_arm(arm),
+    Mean = show_num(unsupported, mean_ba),
+    SD = show_num(unsupported, sd_ba),
+    Min = show_num(unsupported, min_ba),
+    ROC = show_num(unsupported, mean_auc),
+    `PR AUC` = ifelse(unsupported, "unsupported", ifelse(pred_saved, fmt(mean_pr), "not saved")),
+    Accuracy = show_num(unsupported, mean_acc),
+    Precision = show_num(unsupported, mean_precision),
+    Recall = show_num(unsupported, mean_recall),
     Beats = ifelse(beats, "yes", "no")
   )
 knitr::kable(
   shown,
   booktabs = TRUE,
-  caption = "Test balanced accuracy across the five splits. AUC and accuracy are means. High quality is the positive class."
+  longtable = TRUE,
+  caption = "Test metrics across the five splits for all 140 fits. Means, and the balanced-accuracy SD and minimum. Average precision for the original fits was not saved. Their precision and recall for high are computed from the saved confusion counts. High quality is the positive class."
 )
 @
 
@@ -84,7 +128,7 @@ Table 3.1 in the graded report is test accuracy under that report's own split, m
 confusion <- by_arm %>%
   transmute(
     Model = model_name,
-    Arm = c(rose = "ROSE", weights = "Class weights", none = "No resampling", baseline = "Baseline")[as.character(arm)],
+    Arm = label_arm(arm),
     TP = fmt(tp),
     FP = fmt(fp),
     TN = fmt(tn),
@@ -97,18 +141,26 @@ knitr::kable(
 )
 @
 
-<<figure, fig.cap="Test balanced accuracy on each outer split. The line is guessing low.">>=
-plot_scores <- scores %>% filter(model != "guess_low")
+<<figure, fig.cap="Test balanced accuracy of the original models on each outer split. The line is guessing low.">>=
+plot_scores <- scores %>% filter(cohort == "original")
 ggplot(plot_scores, aes(seed, bal_accuracy, colour = model_name, group = model_name)) +
   geom_hline(yintercept = 0.5) +
   geom_line() +
   geom_point() +
-  facet_wrap(~ arm, labeller = as_labeller(c(
-    rose = "ROSE",
-    weights = "Class weights",
-    none = "No resampling",
-    baseline = "Baseline"
-  ))) +
+  facet_wrap(~ arm, labeller = as_labeller(arm_label)) +
+  scale_x_continuous(breaks = run$seeds) +
+  labs(x = "Split seed", y = "Balanced accuracy", colour = NULL) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+@
+
+<<figure-added, fig.cap="Test balanced accuracy of the added models on each outer split. The line is guessing low.">>=
+plot_added <- scores %>% filter(cohort == "added", status == "ok")
+ggplot(plot_added, aes(seed, bal_accuracy, colour = model_name, group = model_name)) +
+  geom_hline(yintercept = 0.5) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ arm, labeller = as_labeller(arm_label)) +
   scale_x_continuous(breaks = run$seeds) +
   labs(x = "Split seed", y = "Balanced accuracy", colour = NULL) +
   theme_bw() +
@@ -119,7 +171,7 @@ ggplot(plot_scores, aes(seed, bal_accuracy, colour = model_name, group = model_n
 selected <- metrics %>%
   transmute(
     Model = model_name,
-    Arm = c(rose = "ROSE", weights = "Class weights", none = "No resampling")[arm],
+    Arm = label_arm(arm),
     Seed = seed,
     Threshold = fmt(threshold),
     Parameters = ifelse(is.na(params), "", params)

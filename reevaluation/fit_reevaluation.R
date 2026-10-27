@@ -62,6 +62,15 @@ params_text <- function(params) {
   paste(pieces, collapse = ", ")
 }
 
+original_tags <- c("lr", "svm_poly", "svm_radial", "lda", "fda", "rf", "xgb")
+
+protected_fit_path <- function(path) {
+  grepl(
+    "^(lr|svm_poly|svm_radial|lda|fda|rf|xgb)__",
+    basename(path)
+  )
+}
+
 empty_metrics <- function(model, arm, seed, status, detail) {
   tibble::tibble(
     model = model$tag,
@@ -71,6 +80,9 @@ empty_metrics <- function(model, arm, seed, status, detail) {
     status = status,
     bal_accuracy = NA_real_,
     roc_auc = NA_real_,
+    pr_auc = NA_real_,
+    precision = NA_real_,
+    recall = NA_real_,
     accuracy = NA_real_,
     tp = NA_real_,
     fp = NA_real_,
@@ -79,8 +91,130 @@ empty_metrics <- function(model, arm, seed, status, detail) {
     threshold = NA_real_,
     n_test = NA_integer_,
     detail = detail,
-    params = NA_character_
+    params = NA_character_,
+    pred_saved = FALSE
   )
+}
+
+load_recode_and_score <- function(path = "data/winequality-red.csv") {
+  data <- load_recoded_data(path, "quality")
+  raw <- load_raw_data(path)
+  score <- as.integer(as.character(raw$quality))
+  predictors <- setdiff(names(data), "quality")
+  if (!identical(data[predictors], raw[predictors])) {
+    stop("The raw and recoded predictor rows do not match")
+  }
+  if (!identical(as.character(data$quality), ifelse(score >= 7, "high", "low"))) {
+    stop("The raw score and the high/low labels disagree")
+  }
+  list(data = data, score = score)
+}
+
+retarget_rset <- function(folds, new_data) {
+  if (nrow(new_data) != nrow(folds$splits[[1]]$data)) {
+    stop("The score data and the fold data have different numbers of rows")
+  }
+  splits <- lapply(folds$splits, function(spl) {
+    rsample::make_splits(
+      list(
+        analysis = as.integer(spl, data = "analysis"),
+        assessment = as.integer(spl, data = "assessment")
+      ),
+      data = new_data
+    )
+  })
+  ids <- folds[, setdiff(names(folds), "splits"), drop = FALSE]
+  rsample::manual_rset(splits, ids)
+}
+
+resolve_grid <- function(job, recipe) {
+  if (!is.null(job$grid_override)) {
+    return(job$grid_override)
+  }
+  if (!is.null(job$model$grid_fn)) {
+    return(job$model$grid_fn(predictor_count(recipe, job$train)))
+  }
+  if (identical(job$model$tag, "rf")) {
+    return(rf_grid(predictor_count(recipe, job$train)))
+  }
+  job$model$grid
+}
+
+attach_predictions <- function(metrics, oof, test_pred, train_index, test_index) {
+  attr(metrics, "oof") <- oof
+  attr(metrics, "test_pred") <- test_pred
+  attr(metrics, "train_index") <- train_index
+  attr(metrics, "test_index") <- test_index
+  metrics
+}
+
+assert_oof_excludes_test <- function(oof_row, train_index, test_index, n_train) {
+  if (any(oof_row < 1L | oof_row > n_train)) {
+    stop("Out-of-fold row ids are outside the training split")
+  }
+  if (length(intersect(train_index, test_index)) != 0) {
+    stop("The outer test rows are inside the training split")
+  }
+  if (length(intersect(train_index[oof_row], test_index)) != 0) {
+    stop("Out-of-fold predictions include outer test rows")
+  }
+  invisible(NULL)
+}
+
+engine_honors_case_weights <- function(engine) {
+  if (!engine %in% c("lightgbm", "xgboost")) {
+    stop("No class-weight probe for engine ", engine)
+  }
+  n <- 160
+  set.seed(1)
+  x1 <- stats::rnorm(n)
+  x2 <- stats::rnorm(n)
+  quality <- factor(
+    ifelse(x1 + stats::rnorm(n) > 0, "high", "low"),
+    levels = level_order
+  )
+  base <- tibble::tibble(x1 = x1, x2 = x2, quality = quality)
+  weighted <- base
+  weighted$case_weight <- hardhat::importance_weights(rep(1, n))
+  fixed <- parsnip::boost_tree(
+    trees = 20,
+    tree_depth = 2,
+    learn_rate = 0.2,
+    min_n = 5,
+    mtry = 2
+  )
+  if (identical(engine, "lightgbm")) {
+    fixed <- fixed %>%
+      parsnip::set_engine("lightgbm", num_threads = 1, seed = 1, deterministic = TRUE) %>%
+      parsnip::set_mode("classification")
+  } else {
+    fixed <- fixed %>%
+      parsnip::set_engine("xgboost", nthread = 1) %>%
+      parsnip::set_mode("classification")
+  }
+  recipe <- recipes::recipe(quality ~ ., data = weighted)
+  workflow <- workflows::workflow() %>%
+    workflows::add_model(fixed) %>%
+    workflows::add_recipe(recipe) %>%
+    workflows::add_case_weights(case_weight)
+
+  fit_once <- function(weights) {
+    data <- base
+    data$case_weight <- hardhat::importance_weights(weights)
+    if (identical(engine, "xgboost")) {
+      set.seed(1)
+    }
+    fitted <- generics::fit(workflow, data = data)
+    predict(fitted, data, type = "prob")$.pred_high
+  }
+
+  first <- fit_once(rep(1, n))
+  second <- fit_once(rep(1, n))
+  if (max(abs(first - second)) > 1e-8) {
+    stop("The ", engine, " weight probe is not deterministic")
+  }
+  changed <- fit_once(ifelse(base$quality == "high", 50, 1))
+  max(abs(first - changed)) > 1e-6
 }
 
 job_key <- function(job, source_md5, v, repeats) {
@@ -101,6 +235,15 @@ job_key <- function(job, source_md5, v, repeats) {
 }
 
 fit_job <- function(job, source_md5, v, repeats) {
+  if (protected_fit_path(job$path)) {
+    if (!file.exists(job$path)) {
+      stop("Refusing to create a new fit for an existing model: ", job$path)
+    }
+    loaded <- readRDS(job$path)
+    message(sprintf("Kept existing %s / %s / %d", job$model$tag, job$arm, job$seed))
+    return(loaded$metrics)
+  }
+
   key <- job_key(job, source_md5, v, repeats)
   if (file.exists(job$path)) {
     loaded <- tryCatch(readRDS(job$path), error = function(e) NULL)
@@ -122,13 +265,57 @@ fit_job <- function(job, source_md5, v, repeats) {
     }
   )
 
+  oof <- attr(metrics, "oof")
+  test_pred <- attr(metrics, "test_pred")
+  train_index <- attr(metrics, "train_index")
+  test_index <- attr(metrics, "test_index")
+  if (isTRUE(job$model$fresh) && identical(metrics$status, "ok")) {
+    if (is.null(oof) || is.null(test_pred) || nrow(oof) == 0 || nrow(test_pred) == 0) {
+      stop("The new fit did not save out-of-fold and test predictions")
+    }
+  }
+  metrics_out <- metrics
+  attr(metrics_out, "oof") <- NULL
+  attr(metrics_out, "test_pred") <- NULL
+  attr(metrics_out, "train_index") <- NULL
+  attr(metrics_out, "test_index") <- NULL
+
   tmp <- paste0(job$path, ".tmp.", Sys.getpid())
-  saveRDS(list(key = key, metrics = metrics), tmp)
+  saveRDS(
+    list(
+      key = key,
+      metrics = metrics_out,
+      oof = oof,
+      test = test_pred,
+      train_index = train_index,
+      test_index = test_index
+    ),
+    tmp
+  )
   file.rename(tmp, job$path)
-  metrics
+  metrics_out
 }
 
 score_job <- function(job) {
+  if (isFALSE(job$weights_supported) && identical(job$arm, "weights")) {
+    return(empty_metrics(
+      job$model,
+      job$arm,
+      job$seed,
+      "unsupported",
+      "The engine ignored class weights on a probe fit."
+    ))
+  }
+  if (isTRUE(job$model$fresh)) {
+    set.seed(job$seed)
+  }
+  if (isTRUE(job$model$score)) {
+    return(score_regression_job(job))
+  }
+  score_classification_job(job)
+}
+
+score_classification_job <- function(job) {
   model <- job$model$model
   if (job$arm == "weights" && job$model$tag %in% svm_tags) {
     model <- with_class_weights(model, job$class_weights)
@@ -141,10 +328,7 @@ score_job <- function(job) {
     workflow <- workflows::add_case_weights(workflow, case_weight)
   }
 
-  grid <- job$model$grid
-  if (job$model$tag == "rf") {
-    grid <- rf_grid(predictor_count(recipe, job$train))
-  }
+  grid <- resolve_grid(job, recipe)
 
   selection <- yardstick::metric_set(yardstick::bal_accuracy)
   tuned <- tune::tune_grid(
@@ -184,8 +368,11 @@ score_job <- function(job) {
   if (!is.finite(scored$bal_accuracy)) {
     stop("The final fit produced no predictions")
   }
+  if (isTRUE(job$model$fresh)) {
+    assert_oof_excludes_test(oof$.row, job$train_index, job$test_index, nrow(job$train))
+  }
 
-  tibble::tibble(
+  metrics <- tibble::tibble(
     model = job$model$tag,
     model_name = job$model$name,
     arm = job$arm,
@@ -193,6 +380,9 @@ score_job <- function(job) {
     status = "ok",
     bal_accuracy = scored$bal_accuracy,
     roc_auc = scored$roc_auc,
+    pr_auc = scored$pr_auc,
+    precision = scored$precision,
+    recall = scored$recall,
     accuracy = scored$accuracy,
     tp = scored$tp,
     fp = scored$fp,
@@ -201,17 +391,134 @@ score_job <- function(job) {
     threshold = scored$threshold,
     n_test = nrow(job$test),
     detail = NA_character_,
-    params = params_text(best)
+    params = params_text(best),
+    pred_saved = isTRUE(job$model$fresh)
+  )
+  if (!isTRUE(job$model$fresh)) {
+    return(metrics)
+  }
+  attach_predictions(
+    metrics,
+    oof = tibble::tibble(
+      quality = oof$quality,
+      .pred_high = oof$.pred_high,
+      .row = oof$.row
+    ),
+    test_pred = tibble::tibble(
+      quality = job$test$quality,
+      .pred_high = test_prob$.pred_high
+    ),
+    train_index = job$train_index,
+    test_index = job$test_index
   )
 }
 
-make_outer_splits <- function(data, seeds, v, repeats) {
+score_regression_job <- function(job) {
+  model <- job$model$model
+  recipe <- score_recipe(job$train)
+  workflow <- workflows::workflow() %>%
+    workflows::add_model(model) %>%
+    workflows::add_recipe(recipe)
+  grid <- resolve_grid(job, recipe)
+  selection <- yardstick::metric_set(bal_accuracy_at_6_5)
+  tuned <- tune::tune_grid(
+    workflow,
+    resamples = job$folds,
+    grid = grid,
+    metrics = selection,
+    control = tune::control_grid(
+      save_pred = FALSE,
+      verbose = FALSE,
+      allow_par = FALSE
+    )
+  )
+  best <- tune::select_best(tuned, metric = "bal_accuracy_at_6_5")
+  final_workflow <- tune::finalize_workflow(workflow, best)
+  resampled <- tune::fit_resamples(
+    final_workflow,
+    resamples = job$folds,
+    metrics = selection,
+    control = tune::control_resamples(
+      save_pred = TRUE,
+      verbose = FALSE,
+      allow_par = FALSE
+    )
+  )
+  oof <- tune::collect_predictions(resampled)
+  if (!".pred" %in% names(oof)) {
+    stop("The selected score model produced no numeric prediction")
+  }
+  # The cut search sees only these out-of-fold scores. The test rows are not here.
+  assert_oof_excludes_test(oof$.row, job$train_index, job$test_index, nrow(job$train))
+  threshold <- choose_score_threshold(oof$quality, oof$.pred)
+
+  fitted <- generics::fit(final_workflow, data = job$train)
+  test_score <- predict(fitted, job$test, type = "numeric")
+  scored <- score_at_threshold(job$test_class, test_score$.pred, threshold)
+  if (!is.finite(scored$bal_accuracy)) {
+    stop("The final fit produced no predictions")
+  }
+
+  metrics <- tibble::tibble(
+    model = job$model$tag,
+    model_name = job$model$name,
+    arm = job$arm,
+    seed = job$seed,
+    status = "ok",
+    bal_accuracy = scored$bal_accuracy,
+    roc_auc = scored$roc_auc,
+    pr_auc = scored$pr_auc,
+    precision = scored$precision,
+    recall = scored$recall,
+    accuracy = scored$accuracy,
+    tp = scored$tp,
+    fp = scored$fp,
+    tn = scored$tn,
+    fn = scored$fn,
+    threshold = scored$threshold,
+    n_test = nrow(job$test),
+    detail = NA_character_,
+    params = params_text(best),
+    pred_saved = TRUE
+  )
+  attach_predictions(
+    metrics,
+    oof = tibble::tibble(
+      quality = oof$quality,
+      .pred = oof$.pred,
+      .row = oof$.row
+    ),
+    test_pred = tibble::tibble(
+      quality = job$test_class,
+      score = job$test$quality,
+      .pred = test_score$.pred
+    ),
+    train_index = job$train_index,
+    test_index = job$test_index
+  )
+}
+
+make_outer_splits <- function(data, score, seeds, v, repeats) {
+  if (length(score) != nrow(data)) {
+    stop("The score vector does not match the data")
+  }
   RNGkind("L'Ecuyer-CMRG")
   lapply(seeds, function(seed) {
     set.seed(seed)
     split <- rsample::initial_split(data, prop = 0.8, strata = quality)
     train <- rsample::training(split)
     test <- rsample::testing(split)
+    train_index <- as.integer(split, data = "analysis")
+    test_index <- as.integer(split, data = "assessment")
+    if (!identical(as.character(train$quality), as.character(data$quality[train_index]))) {
+      stop("Training rows are not aligned with the split index for seed ", seed)
+    }
+    if (!identical(as.character(test$quality), as.character(data$quality[test_index]))) {
+      stop("Test rows are not aligned with the split index for seed ", seed)
+    }
+    if (length(intersect(train_index, test_index)) != 0) {
+      stop("Outer split overlaps for seed ", seed)
+    }
     plain_folds <- rsample::vfold_cv(train, v = v, repeats = repeats, strata = quality)
     weighted_train <- train
     weighted_train$case_weight <- make_case_weights(train)
@@ -220,6 +527,16 @@ make_outer_splits <- function(data, seeds, v, repeats) {
     weighted_folds <- rsample::vfold_cv(
       weighted_train, v = v, repeats = repeats, strata = quality
     )
+    score_train <- train
+    score_train$quality <- score[train_index]
+    score_test <- test
+    score_test$quality <- score[test_index]
+    if (!identical(as.character(train$quality), ifelse(score_train$quality >= 7, "high", "low"))) {
+      stop("Score labels do not match the training classes for seed ", seed)
+    }
+    if (!identical(as.character(test$quality), ifelse(score_test$quality >= 7, "high", "low"))) {
+      stop("Score labels do not match the test classes for seed ", seed)
+    }
     list(
       seed = seed,
       train = train,
@@ -228,7 +545,12 @@ make_outer_splits <- function(data, seeds, v, repeats) {
       weighted_train = weighted_train,
       weighted_test = weighted_test,
       weighted_folds = weighted_folds,
-      class_weights = class_weight_vector(train)
+      class_weights = class_weight_vector(train),
+      train_index = train_index,
+      test_index = test_index,
+      score_train = score_train,
+      score_test = score_test,
+      score_folds = retarget_rset(plain_folds, score_train)
     )
   })
 }
@@ -239,7 +561,10 @@ fit_reevaluation <- function(
   v = 10L,
   repeats = 10L,
   model_tags = NULL,
-  arms = c("rose", "weights", "none")
+  arms = c("rose", "weights", "none"),
+  metrics_file = "metrics.rds",
+  run_file = "run.rds",
+  write_baseline = TRUE
 ) {
   dir.create(fits_dir, recursive = TRUE, showWarnings = FALSE)
   Sys.setenv(OMP_NUM_THREADS = "1")
@@ -249,29 +574,57 @@ fit_reevaluation <- function(
   }
   cores <- as.integer(cores)
 
-  data <- load_recoded_data("data/winequality-red.csv", "quality")
-  outers <- make_outer_splits(data, seeds, v, repeats)
+  loaded <- load_recode_and_score("data/winequality-red.csv")
+  data <- loaded$data
+  outers <- make_outer_splits(data, loaded$score, seeds, v, repeats)
   models <- reevaluation_models()
   if (is.null(model_tags)) {
-    model_tags <- names(models)
+    model_tags <- original_tags
   }
   source_md5 <- vapply(source_files, file_md5, character(1))
 
+  probe <- list()
   jobs <- list()
   for (outer in outers) {
-    for (arm in arms) {
-      for (tag in model_tags) {
-        model <- models[[tag]]
+    for (tag in model_tags) {
+      model <- models[[tag]]
+      if (is.null(model)) {
+        stop("Unknown model ", tag)
+      }
+      model_arms <- model$arms
+      if (is.null(model_arms)) {
+        model_arms <- arms
+      }
+      weights_supported <- TRUE
+      if (isTRUE(model$probe_weights)) {
+        engine <- model$model$engine
+        if (is.null(probe[[engine]])) {
+          probe[[engine]] <- engine_honors_case_weights(engine)
+          message(sprintf(
+            "Class weights for %s: %s",
+            engine,
+            if (isTRUE(probe[[engine]])) "honored" else "unsupported"
+          ))
+        }
+        weights_supported <- isTRUE(probe[[engine]])
+      }
+      for (arm in model_arms) {
         file <- sprintf("%s__%s__%s.rds", tag, arm, outer$seed)
-        use_case_weights <- arm == "weights" && !(tag %in% svm_tags)
+        use_case_weights <- identical(arm, "weights") && !(tag %in% svm_tags)
+        use_score <- isTRUE(model$score)
         jobs[[length(jobs) + 1]] <- list(
           model = model,
           arm = arm,
           seed = outer$seed,
-          train = if (use_case_weights) outer$weighted_train else outer$train,
-          test = if (use_case_weights) outer$weighted_test else outer$test,
-          folds = if (use_case_weights) outer$weighted_folds else outer$folds,
+          train = if (use_score) outer$score_train else if (use_case_weights) outer$weighted_train else outer$train,
+          test = if (use_score) outer$score_test else if (use_case_weights) outer$weighted_test else outer$test,
+          folds = if (use_score) outer$score_folds else if (use_case_weights) outer$weighted_folds else outer$folds,
           class_weights = outer$class_weights,
+          test_class = if (use_score) outer$test$quality else NULL,
+          train_index = outer$train_index,
+          test_index = outer$test_index,
+          weights_supported = weights_supported,
+          grid_override = NULL,
           path = file.path(fits_dir, file)
         )
       }
@@ -288,6 +641,9 @@ fit_reevaluation <- function(
       status = "ok",
       bal_accuracy = scored$bal_accuracy,
       roc_auc = scored$roc_auc,
+      pr_auc = scored$pr_auc,
+      precision = scored$precision,
+      recall = scored$recall,
       accuracy = scored$accuracy,
       tp = scored$tp,
       fp = scored$fp,
@@ -296,10 +652,13 @@ fit_reevaluation <- function(
       threshold = scored$threshold,
       n_test = nrow(outer$test),
       detail = NA_character_,
-      params = NA_character_
+      params = NA_character_,
+      pred_saved = FALSE
     )
   }))
-  saveRDS(baseline, file.path(fits_dir, "baseline.rds"))
+  if (isTRUE(write_baseline)) {
+    saveRDS(baseline, file.path(fits_dir, "baseline.rds"))
+  }
 
   message(sprintf(
     "Fitting %d combinations on %d cores, seeds %s, %d x %d CV",
@@ -322,7 +681,7 @@ fit_reevaluation <- function(
   }
 
   metrics <- dplyr::bind_rows(out)
-  saveRDS(metrics, file.path(fits_dir, "metrics.rds"))
+  saveRDS(metrics, file.path(fits_dir, metrics_file))
   wall_seconds <- proc.time()[["elapsed"]] - started
   run <- list(
     cores = cores,
@@ -330,9 +689,10 @@ fit_reevaluation <- function(
     seeds = seeds,
     v = as.integer(v),
     repeats = as.integer(repeats),
-    combinations = length(jobs)
+    combinations = length(jobs),
+    model_tags = model_tags
   )
-  saveRDS(run, file.path(fits_dir, "run.rds"))
+  saveRDS(run, file.path(fits_dir, run_file))
   message(sprintf("Fit finished in %.1f seconds on %d cores", wall_seconds, cores))
   run
 }
