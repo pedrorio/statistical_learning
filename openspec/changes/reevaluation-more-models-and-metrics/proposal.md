@@ -6,7 +6,7 @@ The re-evaluation reports balanced accuracy, ROC AUC, and plain accuracy, but no
 
 ## What Changes
 
-Size: M. Thirty-five new outer fits and a wider metrics table. The existing 105 fits are not rerun. The light nine-point XGBoost arm stays as it is.
+Size: M. Thirty-five new outer fits and a wider metrics table. The existing 10 by 10 is not rerun. A one-shot refit of each already selected workflow may write test probabilities for the original 105 fits to new files. The light nine-point XGBoost arm stays as it is.
 
 - Save out-of-fold and test-set probabilities for every fit this change runs. Score models save the numeric prediction in that same place.
 - Add average precision, and precision and recall for high at the chosen cut-off, next to balanced accuracy, ROC AUC, and plain accuracy.

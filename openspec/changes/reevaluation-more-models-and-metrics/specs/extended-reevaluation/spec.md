@@ -7,7 +7,7 @@ Extend the red-wine re-evaluation with saved probabilities, precision metrics, L
 ## ADDED Requirements
 
 ### Requirement: New fits save their predictions
-Each fit this change runs SHALL save the out-of-fold predictions used to choose the cut-off and the test-set predictions used to score that fit. A classifier saves class probabilities. A score model saves the predicted quality score. The existing 105 fits SHALL NOT be rerun to backfill predictions.
+Each fit this change runs SHALL save the out-of-fold predictions used to choose the cut-off and the test-set predictions used to score that fit. A classifier saves class probabilities. A score model saves the predicted quality score. The existing 105 fits SHALL NOT be rerun through the 10 by 10. Test probabilities for those fits MAY be obtained by one refit of the already selected workflow, written to new files, and kept only when that refit reproduces the stored test metrics.
 
 #### Scenario: A finished summary has both prediction sets
 - **WHEN** a new fit has completed
@@ -40,6 +40,21 @@ Random forest, LightGBM, and penalised linear regression SHALL be fit to the int
 #### Scenario: The test set is scored once
 - **WHEN** a score model is evaluated
 - **THEN** the test scores are predicted once, after the cut has been chosen on out-of-fold scores
+
+### Requirement: Original fits gain test average precision from one refit
+Each of the 105 existing fits SHALL be refit once from its stored hyperparameters and cut-off, on that seed's outer training split. The 10 by 10 SHALL NOT be rerun. Test probabilities and average precision SHALL be written to new files, and the existing per-fit files SHALL stay unchanged.
+
+#### Scenario: A reproduced workflow supplies average precision
+- **WHEN** the one-shot refit matches the stored ROC AUC, balanced accuracy, accuracy, and confusion counts within 1e-9
+- **THEN** average precision is computed from that refit's test probabilities
+
+#### Scenario: A mismatch is retried on the original stream
+- **WHEN** the first refit does not match the stored test metrics
+- **THEN** it is retried once on the original L'Ecuyer stream
+
+#### Scenario: A workflow that does not reproduce is not given a score
+- **WHEN** the refit does not match on either attempt
+- **THEN** its average precision is not reproducible and the existing per-fit file is unchanged
 
 ### Requirement: The existing protocol and graded files stay
 The five seeds 2021–2025, the stratified 80/20 splits, the training-only 10 by 10, balanced-accuracy selection, and one test score SHALL stay. Existing grids, including both SVMs, SHALL stay. This change SHALL NOT edit `main.pdf`, the graded conclusion, `fit.R`, or `utils/recipes/step_recipe.R`.
