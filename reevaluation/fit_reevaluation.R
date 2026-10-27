@@ -72,9 +72,12 @@ protected_fit_path <- function(path) {
 }
 
 empty_metrics <- function(model, arm, seed, status, detail) {
+  # Read these first: inside tibble() the new `model` column masks the argument.
+  tag <- model$tag
+  name <- model$name
   tibble::tibble(
-    model = model$tag,
-    model_name = model$name,
+    model = tag,
+    model_name = name,
     arm = arm,
     seed = seed,
     status = status,

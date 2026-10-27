@@ -312,8 +312,8 @@ refit_original_pr_auc <- function() {
   guess_pr <- vapply(seq_len(nrow(baseline)), function(i) {
     n_low <- baseline$tn[[i]] + baseline$fp[[i]]
     n_high <- baseline$tp[[i]] + baseline$fn[[i]]
-    truth <- factor(c(rep("low", n_low), rep("high", n_high)), levels = level_order)
-    yardstick::pr_auc_vec(truth, rep(0, n_low + n_high), event_level = "second")
+    # A constant score has no ranking, so its PR AUC is the share of high rows.
+    n_high / (n_low + n_high)
   }, numeric(1))
 
   after <- tools::md5sum(guard_paths())
