@@ -1,3 +1,6 @@
+library(bonsai)
+library(lightgbm)
+
 read_original_models <- function() {
   env <- new.env(parent = globalenv())
   files <- c(
@@ -43,7 +46,152 @@ reevaluation_models <- function() {
     tag = "xgb",
     grid = dials::grid_regular(dials::tree_depth(), dials::learn_rate(), levels = 3)
   )
+
+  # Forty space-filling candidates. learn_rate is log10 from -2 to -0.5
+  # (0.01 to about 0.316), which covers the rate the nine-point grid selects.
+  # Trees start at 50 so the fixed early-stopping patience of 20 is legal.
+  # num_leaves is the lightgbm capacity parameter; max_depth stays at the
+  # engine default. The grid is deterministic for a given predictor count.
+  models$lgb <- list(
+    model = lightgbm_spec("classification"),
+    name = "LightGBM",
+    tag = "lgb",
+    grid = NULL,
+    grid_fn = lightgbm_grid,
+    arms = c("weights", "none"),
+    fresh = TRUE,
+    probe_weights = TRUE,
+    score = FALSE
+  )
+  models$xgb_full <- list(
+    model = parsnip::boost_tree(
+      trees = 500,
+      tree_depth = tune::tune(),
+      learn_rate = tune::tune(),
+      min_n = tune::tune(),
+      mtry = tune::tune(),
+      loss_reduction = tune::tune(),
+      sample_size = tune::tune()
+    ) %>%
+      parsnip::set_engine("xgboost", nthread = 1) %>%
+      parsnip::set_mode("classification"),
+    name = "Gradient boosting (full search)",
+    tag = "xgb_full",
+    grid = NULL,
+    grid_fn = xgb_full_grid,
+    arms = c("weights", "none"),
+    fresh = TRUE,
+    probe_weights = TRUE,
+    score = FALSE
+  )
+  models$score_rf <- list(
+    model = parsnip::rand_forest(mtry = tune::tune(), min_n = tune::tune(), trees = 500) %>%
+      parsnip::set_engine("ranger", num.threads = 1, seed = 1L) %>%
+      parsnip::set_mode("regression"),
+    name = "Random forest on the score",
+    tag = "score_rf",
+    grid = NULL,
+    grid_fn = rf_grid,
+    arms = "score",
+    fresh = TRUE,
+    probe_weights = FALSE,
+    score = TRUE
+  )
+  models$score_lgb <- list(
+    model = lightgbm_spec("regression"),
+    name = "LightGBM on the score",
+    tag = "score_lgb",
+    grid = NULL,
+    grid_fn = lightgbm_grid,
+    arms = "score",
+    fresh = TRUE,
+    probe_weights = FALSE,
+    score = TRUE
+  )
+  models$score_lin <- list(
+    model = parsnip::linear_reg(penalty = tune::tune(), mixture = tune::tune()) %>%
+      parsnip::set_engine("glmnet"),
+    name = "Penalised regression on the score",
+    tag = "score_lin",
+    grid = dials::grid_regular(dials::penalty(), dials::mixture(), levels = 5),
+    arms = "score",
+    fresh = TRUE,
+    probe_weights = FALSE,
+    score = TRUE
+  )
   models
+}
+
+num_leaves_param <- function(range = c(7L, 127L)) {
+  dials::new_quant_param(
+    type = "integer",
+    range = range,
+    inclusive = c(TRUE, TRUE),
+    label = c(num_leaves = "Number of Leaves"),
+    finalize = NULL
+  )
+}
+
+# validation = 0.2 makes bonsai sample a hold-out from the matrix it is given.
+# tune_grid gives it the analysis split, so the assessment fold is not in that draw.
+lightgbm_spec <- function(mode) {
+  parsnip::boost_tree(
+    trees = tune::tune(),
+    learn_rate = tune::tune(),
+    min_n = tune::tune(),
+    mtry = tune::tune(),
+    stop_iter = 20
+  ) %>%
+    parsnip::set_engine(
+      "lightgbm",
+      num_threads = 1,
+      validation = 0.2,
+      num_leaves = tune::tune()
+    ) %>%
+    parsnip::set_mode(mode)
+}
+
+lightgbm_grid <- function(n_predictors) {
+  if (!is.numeric(n_predictors) || n_predictors < 1) {
+    stop("LightGBM needs at least one predictor")
+  }
+  grid <- withr::with_seed(20210321, {
+    dials::grid_space_filling(
+      dials::trees(range = c(50L, 1000L)),
+      dials::learn_rate(range = c(-2, -0.5)),
+      dials::min_n(),
+      dials::mtry(c(1L, as.integer(n_predictors))),
+      num_leaves_param(),
+      size = 40
+    )
+  })
+  expected <- c("trees", "learn_rate", "min_n", "mtry", "num_leaves")
+  if (nrow(grid) != 40 || !all(expected %in% names(grid))) {
+    stop("LightGBM grid is not the 40-candidate search")
+  }
+  grid
+}
+
+xgb_full_grid <- function(n_predictors) {
+  if (!is.numeric(n_predictors) || n_predictors < 1) {
+    stop("XGBoost needs at least one predictor")
+  }
+  grid <- withr::with_seed(20210321, {
+    dials::grid_space_filling(
+      dials::tree_depth(),
+      dials::learn_rate(range = c(-2, -0.5)),
+      dials::min_n(),
+      dials::mtry(c(1L, as.integer(n_predictors))),
+      dials::loss_reduction(),
+      dials::sample_prop(),
+      size = 40
+    )
+  })
+  expected <- c("tree_depth", "learn_rate", "min_n", "mtry", "loss_reduction", "sample_size")
+  if (nrow(grid) != 40 || !all(expected %in% names(grid))) {
+    stop("Full XGBoost grid is not the 40-candidate search")
+  }
+  grid
 }
 
 svm_tags <- c("svm_poly", "svm_radial")

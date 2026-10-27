@@ -1,5 +1,5 @@
 \documentclass{article}
-\usepackage{booktabs,longtable,graphicx}
+\usepackage{booktabs,longtable,graphicx,array,url}
 \usepackage[margin=0.75in]{geometry}
 \begin{document}
 
@@ -18,64 +18,261 @@ knitr::opts_chunk$set(
 <<load, include=FALSE>>=
 library(dplyr)
 library(ggplot2)
+library(kableExtra)
 results_dir <- "results/reevaluation"
-metrics <- readRDS(file.path(results_dir, "metrics.rds"))
+original <- readRDS(file.path(results_dir, "metrics.rds"))
+added <- readRDS(file.path(results_dir, "metrics_added.rds"))
+pr_original <- readRDS(file.path(results_dir, "metrics_pr_original.rds"))
 baseline <- readRDS(file.path(results_dir, "baseline.rds"))
 run <- readRDS(file.path(results_dir, "run.rds"))
+run_added <- readRDS(file.path(results_dir, "run_added.rds"))
+run_pr <- readRDS(file.path(results_dir, "run_pr_original.rds"))
+if (nrow(pr_original) != 105 || any(pr_original$pr_status != "ok")) {
+  stop("Original PR AUC was not reproduced for every fit")
+}
+original$cohort <- "original"
+original <- original %>%
+  left_join(
+    dplyr::select(pr_original, model, arm, seed, pr_auc, pr_status),
+    by = c("model", "arm", "seed")
+  )
+if (any(is.na(original$pr_auc))) stop("An original fit is missing PR AUC")
+original$pred_saved <- TRUE
+if (!"precision" %in% names(original)) original$precision <- NA_real_
+if (!"recall" %in% names(original)) original$recall <- NA_real_
+added$cohort <- "added"
+added$pr_status <- "ok"
+metrics <- bind_rows(original, added)
+if (nrow(metrics) != 140) stop("Expected 140 fits")
+metrics <- metrics %>%
+  mutate(
+    precision_show = if_else(!is.na(precision), precision, if_else(tp + fp > 0, tp / (tp + fp), NA_real_)),
+    recall_show = if_else(!is.na(recall), recall, if_else(tp + fn > 0, tp / (tp + fn), NA_real_))
+  )
+baseline$cohort <- "baseline"
+baseline$pred_saved <- FALSE
+baseline$precision_show <- NA_real_
+baseline$recall_show <- 0
 scores <- bind_rows(metrics, baseline)
-model_levels <- c("lr", "svm_poly", "svm_radial", "lda", "fda", "rf", "xgb", "guess_low")
-arm_levels <- c("rose", "weights", "none", "baseline")
-scores$model <- factor(scores$model, model_levels)
-scores$arm <- factor(scores$arm, arm_levels)
+arm_label <- c(
+  rose = "ROSE",
+  weights = "Class weights",
+  none = "No resampling",
+  score = "Score",
+  baseline = "Baseline"
+)
 fmt <- function(x) ifelse(is.finite(x), sprintf("%.3f", x), "NA")
-by_arm <- scores %>%
-  group_by(model, model_name, arm) %>%
+label_arm <- function(arm) {
+  out <- unname(arm_label[as.character(arm)])
+  if (anyNA(out)) stop("Unknown arm")
+  out
+}
+by_arm <- metrics %>%
+  group_by(model, model_name, arm, cohort) %>%
   summarise(
+    ok = all(status == "ok"),
+    unsupported = all(status == "unsupported"),
+    beats = all(status == "ok") && all(bal_accuracy > 0.5),
     mean_ba = mean(bal_accuracy),
     sd_ba = sd(bal_accuracy),
     min_ba = min(bal_accuracy),
     mean_auc = mean(roc_auc),
+    mean_pr = mean(pr_auc),
     mean_acc = mean(accuracy),
+    mean_precision = mean(precision_show),
+    mean_recall = mean(recall_show),
+    pred_saved = all(pred_saved %in% TRUE),
     tp = mean(tp),
     fp = mean(fp),
     tn = mean(tn),
     fn = mean(fn),
-    beats = isTRUE(all(status == "ok") && all(bal_accuracy > 0.5)),
     .groups = "drop"
   ) %>%
-  arrange(arm, model)
+  arrange(desc(mean_ba))
+guess_counts <- lapply(sort(unique(baseline$seed)), function(seed) {
+  test <- readRDS(file.path(results_dir, "pr_original", sprintf("svm_radial__none__%d.rds", seed)))$test
+  c(high = sum(test$quality == "high"), n = nrow(test))
+})
+guess_high <- vapply(guess_counts, function(x) x[["high"]], numeric(1))
+guess_n <- vapply(guess_counts, function(x) x[["n"]], numeric(1))
+if (length(unique(guess_high)) != 1 || length(unique(guess_n)) != 1) {
+  stop("The test share of high is not the same on every split")
+}
+guess_pr <- guess_high[[1]] / guess_n[[1]]
+guess_row <- baseline %>%
+  mutate(pr_auc = guess_pr) %>%
+  group_by(model, model_name, arm) %>%
+  summarise(
+    cohort = "baseline",
+    ok = TRUE,
+    unsupported = FALSE,
+    beats = FALSE,
+    mean_ba = mean(bal_accuracy),
+    sd_ba = sd(bal_accuracy),
+    min_ba = min(bal_accuracy),
+    mean_auc = mean(roc_auc),
+    mean_pr = mean(pr_auc),
+    mean_acc = mean(accuracy),
+    mean_precision = NA_real_,
+    mean_recall = 0,
+    pred_saved = TRUE,
+    tp = mean(tp),
+    fp = mean(fp),
+    tn = mean(tn),
+    fn = mean(fn),
+    .groups = "drop"
+  )
+by_arm <- bind_rows(by_arm, guess_row)
+show_num <- function(unsupported, value) {
+  ifelse(unsupported, "unsupported", fmt(value))
+}
 failed <- metrics %>% filter(status != "ok")
+ref_arm <- metrics %>%
+  filter(model == "svm_radial", arm == "none") %>%
+  transmute(seed, ref_ba = bal_accuracy, ref_roc = roc_auc, ref_pr = pr_auc)
+if (nrow(ref_arm) != 5) stop("The radial SVM reference is not five splits")
+paired <- metrics %>%
+  inner_join(ref_arm, by = "seed") %>%
+  mutate(
+    d_ba = bal_accuracy - ref_ba,
+    d_roc = roc_auc - ref_roc,
+    d_pr = pr_auc - ref_pr
+  )
+if (nrow(paired) != 140 || anyNA(paired$d_pr)) {
+  stop("A paired difference is missing")
+}
+paired_seeds <- sort(unique(paired$seed))
+paired_table <- function(column) {
+  rows <- paired %>%
+    group_by(model_name, arm) %>%
+    summarise(
+      mean_ba = mean(bal_accuracy),
+      diff = list(.data[[column]][order(seed)]),
+      .groups = "drop"
+    ) %>%
+    arrange(desc(mean_ba))
+  mat <- do.call(rbind, rows$diff)
+  if (ncol(mat) != length(paired_seeds)) stop("A paired difference is not five splits")
+  shown <- tibble::tibble(
+    Model = rows$model_name,
+    Arm = label_arm(rows$arm)
+  )
+  for (j in seq_along(paired_seeds)) {
+    shown[[as.character(paired_seeds[[j]])]] <- sprintf("%+.4f", mat[, j])
+  }
+  shown$Mean <- sprintf("%+.4f", rowMeans(mat))
+  shown$SD <- sprintf("%.4f", apply(mat, 1, stats::sd))
+  shown
+}
 @
 
 <<results, results="asis">>=
 hours <- run$wall_seconds / 3600
+added_hours <- run_added$wall_seconds / 3600
 cat(sprintf(
-  "This note is a re-evaluation of the red-wine classifiers. It is not the graded conclusion, and the numbers below are not Table 3.1.\n\nFive stratified 80/20 splits, seeds %s, each scored once. Grid points are chosen by %d by %d cross-validated balanced accuracy, with high quality as the event. A row beats guessing low only when every split does. The fit took %.2f hours on %d cores.\n",
+  "This note is a re-evaluation of the red-wine classifiers. It is not the graded conclusion, and the numbers below are not Table 3.1.\n\nFive stratified 80/20 splits, seeds %s, each scored once. Grid points are chosen by %d by %d cross-validated balanced accuracy, with high quality as the event. A row beats guessing low only when every split does. The original fit took %.2f hours on %d cores.\n\nThe added LightGBM, fuller XGBoost, and score-model fits are %d outer jobs. That run took %.2f hours on %d cores. The planning estimate was 2.15 hours.\n\nPR AUC for the original 105 fits is one refit of each stored workflow on that seed's training split. The 10 by 10 was not run again. The refit took %.3f seconds on %d cores. %d of 105 matched the stored ROC AUC, balanced accuracy, accuracy, and confusion counts exactly on the first refit, and the other %d matched exactly on the original L'Ecuyer stream. None were left unreproduced.\n",
   paste(run$seeds, collapse = ", "),
   run$v,
   run$repeats,
   hours,
-  run$cores
+  run$cores,
+  run_added$combinations,
+  added_hours,
+  run_added$cores,
+  run_pr$wall_seconds,
+  run_pr$cores,
+  run_pr$first_exact,
+  run_pr$lecuyer_matched
+))
+cat(sprintf(
+  "\nGuess low has no ranking, so its PR AUC is the test-set share of high, %d/%d, not yardstick's constant-score trapezoid from (recall 0, precision 1).\n",
+  guess_high[[1]],
+  guess_n[[1]]
 ))
 @
+
+The 6.5 cut on the score models is the fixed definition of high inside the 10 by 10, and it was not tuned.
+A true quality of 7 or 8 is high, and a predicted score of at least 6.5 is called high
+(\path{reevaluation/metrics.R} lines 105--106).
+The cut is the literal 6.5 in that function, not a grid parameter.
+The grid search selects on that rule
+(\path{reevaluation/fit_reevaluation.R} lines 423--434).
+After a candidate is selected, a separate cut is chosen from out-of-fold scores only
+(\path{reevaluation/fit_reevaluation.R} line 453) and applied once to the test set.
+
+Each of those cross-validation folds refits the score model before the 6.5 rule is applied.
+\path{tune_grid} receives the 100 folds.
+tune 2.1.0 loops one resample at a time by default
+(\path{R/parallel.R} lines 355--356 and 403--407;
+the rows are split in \path{R/tune_grid_loop.R} line 38).
+Each call takes that fold's split
+(\path{R/loop_over_all_stages.R} line 28),
+fits the workflow on its analysis data
+(\path{R/loop_over_all_stages.R} line 139,
+\path{R/loop_over_all_stages-helpers.R} line 357,
+workflows 1.3.0 \path{R/fit.R} line 201),
+and only then scores the assessment predictions
+(\path{R/loop_over_all_stages.R} line 466), which is where 6.5 is applied.
+The selected workflow is refit on each fold again before the out-of-fold cut
+(\path{reevaluation/fit_reevaluation.R} lines 437--446).
 
 <<ba-table, results="asis">>=
 shown <- by_arm %>%
   transmute(
     Model = model_name,
-    Arm = c(rose = "ROSE", weights = "Class weights", none = "No resampling", baseline = "Baseline")[as.character(arm)],
-    Mean = fmt(mean_ba),
-    SD = fmt(sd_ba),
-    Min = fmt(min_ba),
-    AUC = fmt(mean_auc),
-    Accuracy = fmt(mean_acc),
+    Arm = label_arm(arm),
+    Mean = show_num(unsupported, mean_ba),
+    SD = show_num(unsupported, sd_ba),
+    Min = show_num(unsupported, min_ba),
+    ROC = show_num(unsupported, mean_auc),
+    `PR AUC` = ifelse(unsupported, "unsupported", ifelse(pred_saved, fmt(mean_pr), "not saved")),
+    Accuracy = show_num(unsupported, mean_acc),
+    Precision = show_num(unsupported, mean_precision),
+    Recall = show_num(unsupported, mean_recall),
     Beats = ifelse(beats, "yes", "no")
   )
 knitr::kable(
   shown,
+  format = "latex",
   booktabs = TRUE,
-  caption = "Test balanced accuracy across the five splits. AUC and accuracy are means. High quality is the positive class."
-)
+  caption = "Test metrics across the five splits. Means, and the balanced-accuracy SD and minimum. PR AUC for the original fits is from the one-shot refit. Guess low has no ranking; its PR AUC is the test-set share of high. Precision and recall for the original fits are from the saved confusion counts. High quality is the positive class."
+) %>%
+  kable_styling(font_size = 8, latex_options = "scale_down")
+@
+
+Each difference below is that model and arm minus the radial SVM with no resampling, on the same split.
+The five columns are seeds 2021 to 2025.
+The standard deviation is the sample standard deviation of those five differences.
+PR AUC is available for every fitted arm: the original fits use the one-shot refit, and the added fits use the probabilities saved with the fit.
+
+<<paired-ba, results="asis">>=
+knitr::kable(
+  paired_table("d_ba"),
+  format = "latex",
+  booktabs = TRUE,
+  caption = "Paired difference in test balanced accuracy against the radial SVM with no resampling. Positive means higher than that SVM on the same split."
+) %>%
+  kable_styling(font_size = 8, latex_options = "scale_down")
+@
+
+<<paired-roc, results="asis">>=
+knitr::kable(
+  paired_table("d_roc"),
+  format = "latex",
+  booktabs = TRUE,
+  caption = "Paired difference in test ROC AUC against the radial SVM with no resampling. Positive means higher than that SVM on the same split."
+) %>%
+  kable_styling(font_size = 8, latex_options = "scale_down")
+@
+
+<<paired-pr, results="asis">>=
+knitr::kable(
+  paired_table("d_pr"),
+  format = "latex",
+  booktabs = TRUE,
+  caption = "Paired difference in test PR AUC against the radial SVM with no resampling. Positive means higher than that SVM on the same split."
+) %>%
+  kable_styling(font_size = 8, latex_options = "scale_down")
 @
 
 Table 3.1 in the graded report is test accuracy under that report's own split, metric, and recipes.
@@ -84,7 +281,7 @@ Table 3.1 in the graded report is test accuracy under that report's own split, m
 confusion <- by_arm %>%
   transmute(
     Model = model_name,
-    Arm = c(rose = "ROSE", weights = "Class weights", none = "No resampling", baseline = "Baseline")[as.character(arm)],
+    Arm = label_arm(arm),
     TP = fmt(tp),
     FP = fmt(fp),
     TN = fmt(tn),
@@ -97,18 +294,26 @@ knitr::kable(
 )
 @
 
-<<figure, fig.cap="Test balanced accuracy on each outer split. The line is guessing low.">>=
-plot_scores <- scores %>% filter(model != "guess_low")
+<<figure, fig.cap="Test balanced accuracy of the original models on each outer split. The line is guessing low.">>=
+plot_scores <- scores %>% filter(cohort == "original")
 ggplot(plot_scores, aes(seed, bal_accuracy, colour = model_name, group = model_name)) +
   geom_hline(yintercept = 0.5) +
   geom_line() +
   geom_point() +
-  facet_wrap(~ arm, labeller = as_labeller(c(
-    rose = "ROSE",
-    weights = "Class weights",
-    none = "No resampling",
-    baseline = "Baseline"
-  ))) +
+  facet_wrap(~ arm, labeller = as_labeller(arm_label)) +
+  scale_x_continuous(breaks = run$seeds) +
+  labs(x = "Split seed", y = "Balanced accuracy", colour = NULL) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+@
+
+<<figure-added, fig.cap="Test balanced accuracy of the added models on each outer split. The line is guessing low.">>=
+plot_added <- scores %>% filter(cohort == "added", status == "ok")
+ggplot(plot_added, aes(seed, bal_accuracy, colour = model_name, group = model_name)) +
+  geom_hline(yintercept = 0.5) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ arm, labeller = as_labeller(arm_label)) +
   scale_x_continuous(breaks = run$seeds) +
   labs(x = "Split seed", y = "Balanced accuracy", colour = NULL) +
   theme_bw() +
@@ -119,17 +324,21 @@ ggplot(plot_scores, aes(seed, bal_accuracy, colour = model_name, group = model_n
 selected <- metrics %>%
   transmute(
     Model = model_name,
-    Arm = c(rose = "ROSE", weights = "Class weights", none = "No resampling")[arm],
+    Arm = label_arm(arm),
     Seed = seed,
     Threshold = fmt(threshold),
     Parameters = ifelse(is.na(params), "", params)
   )
 knitr::kable(
   selected,
+  format = "latex",
   booktabs = TRUE,
   longtable = TRUE,
   caption = "Threshold and parameters chosen on each training split."
-)
+) %>%
+  column_spec(1, width = "3.6cm") %>%
+  column_spec(2, width = "2.6cm") %>%
+  column_spec(5, width = "5.4cm")
 @
 
 <<failures, results="asis">>=
