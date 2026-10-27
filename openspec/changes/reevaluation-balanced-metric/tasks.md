@@ -12,5 +12,5 @@
 
 ## 3. Fit and report
 
-- [ ] 3.1 Fit five stratified outer splits, seeds 2021–2025, with 10 by 10 inner CV, balanced-accuracy selection, an out-of-fold threshold, and one test score. Write tibble summaries under `results/reevaluation/` with `mclapply`. Do not call `pipeline()` and do not write `results/fits/`.
-- [ ] 3.2 Render `reevaluation/report.Rnw` to `build/reevaluation.pdf` with the three tables, the split figure, the guess-low row, and an opening paragraph that separates it from the graded conclusion. Verify the committed `main.pdf` hash is unchanged.
+- [x] 3.1 Fit five stratified outer splits, seeds 2021–2025, with 10 by 10 inner CV, balanced-accuracy selection, an out-of-fold threshold, and one test score. Write tibble summaries under `results/reevaluation/` with `mclapply`. Do not call `pipeline()` and do not write `results/fits/`.
+- [x] 3.2 Render `reevaluation/report.Rnw` to `build/reevaluation.pdf` with the three tables, the split figure, the guess-low row, and an opening paragraph that separates it from the graded conclusion. Verify the committed `main.pdf` hash is unchanged.
