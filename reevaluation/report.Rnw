@@ -525,12 +525,19 @@ if (anyNA(decision$stack) || any(vapply(stack_fits, function(item) !identical(it
 } else {
   pen_grid <- dials::grid_regular(dials::penalty(), levels = 25)
   penalties <- vapply(stack_fits, function(item) item$penalty[[1]], numeric(1))
-  cat(sprintf(
-    "The blender's selected penalties were %s. The search grid is the 25-point \\texttt{dials::penalty()} grid, from %.3g to %.3g.\n\n",
-    paste(sprintf("%.3g", penalties), collapse = ", "),
-    min(pen_grid$penalty),
-    max(pen_grid$penalty)
-  ))
+  if (length(unique(penalties)) == 1 && isTRUE(all.equal(penalties[[1]], min(pen_grid$penalty)))) {
+    cat(sprintf(
+      "Every seed selected penalty %.3g, the bottom of the 25-point grid from %.3g to %.3g.\n\n",
+      penalties[[1]], min(pen_grid$penalty), max(pen_grid$penalty)
+    ))
+  } else {
+    cat(sprintf(
+      "Selected penalties: %s. The 25-point grid runs from %.3g to %.3g.\n\n",
+      paste(sprintf("%.3g", penalties), collapse = ", "),
+      min(pen_grid$penalty),
+      max(pen_grid$penalty)
+    ))
+  }
   d_svm <- decision$stack - decision$svm
   d_avg <- decision$stack - decision$average
   cat(sprintf(

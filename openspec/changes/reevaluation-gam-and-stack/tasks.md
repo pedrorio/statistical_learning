@@ -1,12 +1,12 @@
 # Tasks
 
-- [ ] Add the GAM spec (mgcv, `s(x, k = 5)` on all 11, `select = TRUE`, REML) with weights and none arms. Run 10 outer jobs and save out-of-fold and test probabilities.
-- [ ] Rerun the radial SVM and random forest (none) at their stored hyperparameters through the same 10 by 10 to save out-of-fold probabilities. Apply the 1e-9 test-reproduction gate.
-- [ ] Build the repeat-averaged out-of-fold matrix. Fit the glmnet blender with its own CV (log-loss), take its out-of-fold cut-off, and score the test set once.
-- [ ] Build the simple average, with the score mapped to a probability on out-of-fold scores, take its out-of-fold cut-off, and score the test set once.
-- [ ] Apply the drop rule against the radial SVM and the average, and report the paired differences and the verdict.
-- [ ] Add the GAM partial-effect plots, the effective degrees of freedom per term and the one-line likelihood note to `reevaluation/report.Rnw`.
-- [ ] Confirm the `main.pdf` hash is unchanged and `fit.R` and `utils/recipes/step_recipe.R` have no edits.
+- [x] Add the GAM spec (mgcv, `s(x, k = 5)` on all 11, `select = TRUE`, REML) with weights and none arms. Run 10 outer jobs and save out-of-fold and test probabilities.
+- [x] Rerun the radial SVM and random forest (none) at their stored hyperparameters through the same 10 by 10 to save out-of-fold probabilities. Apply the 1e-9 test-reproduction gate.
+- [x] Build the repeat-averaged out-of-fold matrix. Fit the glmnet blender with its own CV (log-loss), take its out-of-fold cut-off, and score the test set once.
+- [x] Build the simple average, with the score mapped to a probability on out-of-fold scores, take its out-of-fold cut-off, and score the test set once.
+- [x] Apply the drop rule against the radial SVM and the average, and report the paired differences and the verdict.
+- [x] Add the GAM partial-effect plots, the effective degrees of freedom per term and the one-line likelihood note to `reevaluation/report.Rnw`.
+- [x] Confirm the `main.pdf` hash is unchanged and `fit.R` and `utils/recipes/step_recipe.R` have no edits.
 
 ## Acceptance tests (written first, by the non-builder)
 
