@@ -28,7 +28,7 @@ graded_before <- unname(tools::md5sum("main.pdf"))
 
 smoke <- fit_reevaluation(
   fits_dir = fits_dir,
-  seeds = 2021,
+  seeds = 2021L,
   model_tags = added_tags,
   metrics_file = "metrics_smoke.rds",
   run_file = "run_smoke.rds",

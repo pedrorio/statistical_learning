@@ -1,5 +1,5 @@
 \documentclass{article}
-\usepackage{booktabs,longtable,graphicx}
+\usepackage{booktabs,longtable,graphicx,array}
 \usepackage[margin=0.75in]{geometry}
 \begin{document}
 
@@ -18,6 +18,7 @@ knitr::opts_chunk$set(
 <<load, include=FALSE>>=
 library(dplyr)
 library(ggplot2)
+library(kableExtra)
 results_dir <- "results/reevaluation"
 original <- readRDS(file.path(results_dir, "metrics.rds"))
 added <- readRDS(file.path(results_dir, "metrics_added.rds"))
@@ -85,9 +86,9 @@ failed <- metrics %>% filter(status != "ok")
 
 <<results, results="asis">>=
 hours <- run$wall_seconds / 3600
-added_hours <- run_added$total_seconds / 3600
+added_hours <- run_added$wall_seconds / 3600
 cat(sprintf(
-  "This note is a re-evaluation of the red-wine classifiers. It is not the graded conclusion, and the numbers below are not Table 3.1.\n\nFive stratified 80/20 splits, seeds %s, each scored once. Grid points are chosen by %d by %d cross-validated balanced accuracy, with high quality as the event. A row beats guessing low only when every split does. The original fit took %.2f hours on %d cores.\n\nThe added LightGBM, fuller XGBoost, and score-model fits are %d outer jobs. Counting each job once, they took %.2f hours on %d cores. The planning estimate was 2.15 hours.\n",
+  "This note is a re-evaluation of the red-wine classifiers. It is not the graded conclusion, and the numbers below are not Table 3.1.\n\nFive stratified 80/20 splits, seeds %s, each scored once. Grid points are chosen by %d by %d cross-validated balanced accuracy, with high quality as the event. A row beats guessing low only when every split does. The original fit took %.2f hours on %d cores.\n\nThe added LightGBM, fuller XGBoost, and score-model fits are %d outer jobs. That run took %.2f hours on %d cores. The planning estimate was 2.15 hours.\n",
   paste(run$seeds, collapse = ", "),
   run$v,
   run$repeats,
@@ -116,10 +117,11 @@ shown <- by_arm %>%
   )
 knitr::kable(
   shown,
+  format = "latex",
   booktabs = TRUE,
-  longtable = TRUE,
   caption = "Test metrics across the five splits for all 140 fits. Means, and the balanced-accuracy SD and minimum. Average precision for the original fits was not saved. Their precision and recall for high are computed from the saved confusion counts. High quality is the positive class."
-)
+) %>%
+  kable_styling(font_size = 8, latex_options = "scale_down")
 @
 
 Table 3.1 in the graded report is test accuracy under that report's own split, metric, and recipes.
@@ -178,10 +180,14 @@ selected <- metrics %>%
   )
 knitr::kable(
   selected,
+  format = "latex",
   booktabs = TRUE,
   longtable = TRUE,
   caption = "Threshold and parameters chosen on each training split."
-)
+) %>%
+  column_spec(1, width = "3.6cm") %>%
+  column_spec(2, width = "2.6cm") %>%
+  column_spec(5, width = "5.4cm")
 @
 
 <<failures, results="asis">>=
