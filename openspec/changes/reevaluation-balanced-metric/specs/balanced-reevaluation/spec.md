@@ -84,6 +84,13 @@ Case weights for glmnet, ranger, xgboost, mda LDA, and earth FDA SHALL be invers
 - **WHEN** the weight arm is built
 - **THEN** the recipe does not call `step_rose`, and the weights are computed from the training split only
 
+### Requirement: Class-weighted SVM probabilities follow the high class
+A kernlab SVM fit with class weights SHALL report a high-class probability that rises with the high class. Kernlab relevels the outcome with `as.factor` inside its class-weighted probability model, and that sorts `low` and `high` the wrong way, so those two columns are swapped relative to the decision value. The re-evaluation SHALL correct that mapping where the probability is produced.
+
+#### Scenario: Separable weighted SVM
+- **WHEN** a class-weighted SVM is fit on easily separable low and high data
+- **THEN** the AUC of the high-class probability is above 0.5 and that probability is higher on high rows than on low rows
+
 ### Requirement: The model list adds ranger and xgboost
 The model list SHALL be logistic regression, polynomial SVM, radial SVM, LDA, FDA, a ranger random forest, and an xgboost boosted tree. The five existing grids and the 10 by 10 cross-validation SHALL remain those already used on this branch.
 

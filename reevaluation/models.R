@@ -51,3 +51,44 @@ svm_tags <- c("svm_poly", "svm_radial")
 with_class_weights <- function(model, weights) {
   parsnip::set_engine(model, "kernlab", class.weights = !!weights)
 }
+
+# kernlab's class-weighted probability model refits Platt scaling on
+# as.factor(level names). as.factor sorts those names, so low/high comes
+# back with the columns swapped relative to the decision value. The decision
+# value itself stays oriented: a positive value is the second factor level.
+# Correct the two columns here, before any metric is computed.
+kernlab_class_weight_prob_post <- function(result, object) {
+  result <- tibble::as_tibble(result)
+  weights <- object$fit@kcall$class.weights
+  levels <- kernlab::lev(object$fit)
+  flipped <- !is.null(weights) && length(levels) == 2 && !identical(sort(levels), levels)
+  if (flipped) {
+    values <- as.matrix(result[, levels, drop = FALSE])
+    result[[levels[[1]]]] <- values[, 2]
+    result[[levels[[2]]]] <- values[, 1]
+  }
+  result
+}
+
+install_kernlab_class_weight_prob_fix <- function() {
+  model_env <- parsnip:::get_model_env()
+  for (model in c("svm_poly", "svm_rbf")) {
+    key <- paste0(model, "_predict")
+    pred <- model_env[[key]]
+    hit <- which(
+      pred$engine == "kernlab" &
+        pred$mode == "classification" &
+        pred$type == "prob"
+    )
+    if (length(hit) != 1) {
+      stop("Expected one kernlab probability module for ", model)
+    }
+    value <- pred$value[[hit]]
+    value$post <- kernlab_class_weight_prob_post
+    pred$value[[hit]] <- value
+    model_env[[key]] <- pred
+  }
+  invisible(NULL)
+}
+
+install_kernlab_class_weight_prob_fix()

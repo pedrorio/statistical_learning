@@ -9,6 +9,7 @@
 
 - [x] 2.1 Add the filtered recipe three ways: ROSE, inverse-frequency weights, and neither. Keep ROSE and weights off the same arm. Pass kernlab a named `class.weights` vector from the training split.
 - [x] 2.2 Add ranger and xgboost specs with the 9-point grids and one thread. Do not edit the five existing model files or their grids. Add the packages to `renv.lock` without changing versions already locked.
+- [x] 2.3 Correct the class-weighted kernlab probability columns so the high-class probability follows the decision value. Cover it with a separable SVM test.
 
 ## 3. Fit and report
 
