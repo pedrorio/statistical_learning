@@ -525,19 +525,6 @@ if (anyNA(decision$stack) || any(vapply(stack_fits, function(item) !identical(it
 } else {
   pen_grid <- dials::grid_regular(dials::penalty(), levels = 25)
   penalties <- vapply(stack_fits, function(item) item$penalty[[1]], numeric(1))
-  if (length(unique(penalties)) == 1 && isTRUE(all.equal(penalties[[1]], min(pen_grid$penalty)))) {
-    cat(sprintf(
-      "Every seed selected penalty %.3g, the bottom of the 25-point grid from %.3g to %.3g.\n\n",
-      penalties[[1]], min(pen_grid$penalty), max(pen_grid$penalty)
-    ))
-  } else {
-    cat(sprintf(
-      "Selected penalties: %s. The 25-point grid runs from %.3g to %.3g.\n\n",
-      paste(sprintf("%.3g", penalties), collapse = ", "),
-      min(pen_grid$penalty),
-      max(pen_grid$penalty)
-    ))
-  }
   d_svm <- decision$stack - decision$svm
   d_avg <- decision$stack - decision$average
   cat(sprintf(
@@ -553,7 +540,20 @@ if (anyNA(decision$stack) || any(vapply(stack_fits, function(item) !identical(it
   if (isTRUE(decision$keep)) {
     cat("The stack clears both references on the pre-registered rule, so it is kept.\n")
   } else {
-    cat("The stack is not worth keeping. The numbers stay as evidence.\n")
+    cat("The stack is not worth keeping. The numbers stay as evidence.\n\n")
+  }
+  if (length(unique(penalties)) == 1 && isTRUE(all.equal(penalties[[1]], min(pen_grid$penalty)))) {
+    cat(sprintf(
+      "The blender's penalty landed at the bottom of its grid (%.3g) on every seed, and the grid was deliberately not extended after seeing the result, because the drop rule was set in advance and the stack matches the simple average anyway.\n",
+      penalties[[1]]
+    ))
+  } else {
+    cat(sprintf(
+      "Selected penalties: %s. The 25-point grid runs from %.3g to %.3g.\n",
+      paste(sprintf("%.3g", penalties), collapse = ", "),
+      min(pen_grid$penalty),
+      max(pen_grid$penalty)
+    ))
   }
 }
 @
