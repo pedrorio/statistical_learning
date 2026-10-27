@@ -1,0 +1,152 @@
+\documentclass{article}
+\usepackage{booktabs,longtable,graphicx}
+\usepackage[margin=0.75in]{geometry}
+\begin{document}
+
+<<setup, include=FALSE>>=
+knitr::opts_knit$set(root.dir = normalizePath(".."))
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.path = "build/figures/reeval-",
+  fig.width = 7,
+  fig.height = 3.4
+)
+@
+
+<<load, include=FALSE>>=
+library(dplyr)
+library(ggplot2)
+results_dir <- "results/reevaluation"
+metrics <- readRDS(file.path(results_dir, "metrics.rds"))
+baseline <- readRDS(file.path(results_dir, "baseline.rds"))
+run <- readRDS(file.path(results_dir, "run.rds"))
+scores <- bind_rows(metrics, baseline)
+model_levels <- c("lr", "svm_poly", "svm_radial", "lda", "fda", "rf", "xgb", "guess_low")
+arm_levels <- c("rose", "weights", "none", "baseline")
+scores$model <- factor(scores$model, model_levels)
+scores$arm <- factor(scores$arm, arm_levels)
+fmt <- function(x) ifelse(is.finite(x), sprintf("%.3f", x), "NA")
+by_arm <- scores %>%
+  group_by(model, model_name, arm) %>%
+  summarise(
+    mean_ba = mean(bal_accuracy),
+    sd_ba = sd(bal_accuracy),
+    min_ba = min(bal_accuracy),
+    mean_auc = mean(roc_auc),
+    mean_acc = mean(accuracy),
+    tp = mean(tp),
+    fp = mean(fp),
+    tn = mean(tn),
+    fn = mean(fn),
+    beats = isTRUE(all(status == "ok") && all(bal_accuracy > 0.5)),
+    .groups = "drop"
+  ) %>%
+  arrange(arm, model)
+failed <- metrics %>% filter(status != "ok")
+@
+
+<<results, results="asis">>=
+hours <- run$wall_seconds / 3600
+cat(sprintf(
+  "This note is a re-evaluation of the red-wine classifiers. It is not the graded conclusion, and the numbers below are not Table 3.1.\n\nFive stratified 80/20 splits, seeds %s, each scored once. Grid points are chosen by %d by %d cross-validated balanced accuracy, with high quality as the event. A row beats guessing low only when every split does. The fit took %.2f hours on %d cores.\n",
+  paste(run$seeds, collapse = ", "),
+  run$v,
+  run$repeats,
+  hours,
+  run$cores
+))
+@
+
+<<ba-table, results="asis">>=
+shown <- by_arm %>%
+  transmute(
+    Model = model_name,
+    Arm = c(rose = "ROSE", weights = "Class weights", none = "No resampling", baseline = "Baseline")[as.character(arm)],
+    Mean = fmt(mean_ba),
+    SD = fmt(sd_ba),
+    Min = fmt(min_ba),
+    AUC = fmt(mean_auc),
+    Accuracy = fmt(mean_acc),
+    Beats = ifelse(beats, "yes", "no")
+  )
+knitr::kable(
+  shown,
+  booktabs = TRUE,
+  caption = "Test balanced accuracy across the five splits. AUC and accuracy are means. High quality is the positive class."
+)
+@
+
+Table 3.1 in the graded report is test accuracy under that report's own split, metric, and recipes.
+
+<<confusion, results="asis">>=
+confusion <- by_arm %>%
+  transmute(
+    Model = model_name,
+    Arm = c(rose = "ROSE", weights = "Class weights", none = "No resampling", baseline = "Baseline")[as.character(arm)],
+    TP = fmt(tp),
+    FP = fmt(fp),
+    TN = fmt(tn),
+    FN = fmt(fn)
+  )
+knitr::kable(
+  confusion,
+  booktabs = TRUE,
+  caption = "Mean test confusion counts. High quality is the positive class."
+)
+@
+
+<<figure, fig.cap="Test balanced accuracy on each outer split. The line is guessing low.">>=
+plot_scores <- scores %>% filter(model != "guess_low")
+ggplot(plot_scores, aes(seed, bal_accuracy, colour = model_name, group = model_name)) +
+  geom_hline(yintercept = 0.5) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ arm, labeller = as_labeller(c(
+    rose = "ROSE",
+    weights = "Class weights",
+    none = "No resampling",
+    baseline = "Baseline"
+  ))) +
+  scale_x_continuous(breaks = run$seeds) +
+  labs(x = "Split seed", y = "Balanced accuracy", colour = NULL) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+@
+
+<<selected, results="asis">>=
+selected <- metrics %>%
+  transmute(
+    Model = model_name,
+    Arm = c(rose = "ROSE", weights = "Class weights", none = "No resampling")[arm],
+    Seed = seed,
+    Threshold = fmt(threshold),
+    Parameters = ifelse(is.na(params), "", params)
+  )
+knitr::kable(
+  selected,
+  booktabs = TRUE,
+  longtable = TRUE,
+  caption = "Threshold and parameters chosen on each training split."
+)
+@
+
+<<failures, results="asis">>=
+if (nrow(failed) == 0) {
+  cat("Every model and arm produced a finite test score on every split.\n")
+} else {
+  cat("Some cells did not produce a score.\n")
+  cat("\\begin{verbatim}\n")
+  lines <- sprintf(
+    "%s, %s, seed %s (%s): %s",
+    failed$model_name, failed$arm, failed$seed, failed$status, failed$detail
+  )
+  cat(paste(lines, collapse = "\n"))
+  cat("\n\\end{verbatim}\n")
+}
+@
+
+The graded winsorise call passes \texttt{prob = 0.999} on a data frame. That method gives the extra arguments to \texttt{as.matrix}, so 0.999 never arrives. The transform that runs uses the multivariate default: median, MAD, a Huber correlation, and chi-square probability 0.95. This note freezes those statistics on the training predictors and does not read the label.
+
+\end{document}
