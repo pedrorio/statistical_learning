@@ -14,11 +14,11 @@ Each fit this change runs SHALL save the out-of-fold predictions used to choose 
 - **THEN** its summary file contains the out-of-fold predictions and the test predictions
 
 ### Requirement: High-class precision metrics are reported
-Each new fit SHALL report average precision, precision for high, and recall for high at the chosen cut-off, together with balanced accuracy, ROC AUC, and plain accuracy. High quality is the event.
+Each new fit SHALL report PR AUC, precision for high, and recall for high at the chosen cut-off, together with balanced accuracy, ROC AUC, and plain accuracy. High quality is the event.
 
 #### Scenario: The positive class is scored at the chosen cut
 - **WHEN** a fit has a chosen cut-off and a scored test set
-- **THEN** precision and recall count high as the positive class, and average precision uses the saved ranking
+- **THEN** precision and recall count high as the positive class, and PR AUC uses the saved ranking
 
 ### Requirement: LightGBM is searched with and without class weights
 LightGBM SHALL be a `boost_tree` model on the lightgbm engine, with one thread, tuned over trees, learn_rate, num_leaves, min_n, and the feature fraction, on 40 space-filling candidates. Early stopping SHALL use a hold-out taken from the analysis set of the resample. The model SHALL be fit with training-split class weights and without them. Selection SHALL be 10 by 10 balanced accuracy on the training split.
@@ -41,12 +41,12 @@ Random forest, LightGBM, and penalised linear regression SHALL be fit to the int
 - **WHEN** a score model is evaluated
 - **THEN** the test scores are predicted once, after the cut has been chosen on out-of-fold scores
 
-### Requirement: Original fits gain test average precision from one refit
-Each of the 105 existing fits SHALL be refit once from its stored hyperparameters and cut-off, on that seed's outer training split. The 10 by 10 SHALL NOT be rerun. Test probabilities and average precision SHALL be written to new files, and the existing per-fit files SHALL stay unchanged.
+### Requirement: Original fits gain test PR AUC from one refit
+Each of the 105 existing fits SHALL be refit once from its stored hyperparameters and cut-off, on that seed's outer training split. The 10 by 10 SHALL NOT be rerun. Test probabilities and PR AUC SHALL be written to new files, and the existing per-fit files SHALL stay unchanged.
 
-#### Scenario: A reproduced workflow supplies average precision
+#### Scenario: A reproduced workflow supplies PR AUC
 - **WHEN** the one-shot refit matches the stored ROC AUC, balanced accuracy, accuracy, and confusion counts within 1e-9
-- **THEN** average precision is computed from that refit's test probabilities
+- **THEN** PR AUC is computed from that refit's test probabilities
 
 #### Scenario: A mismatch is retried on the original stream
 - **WHEN** the first refit does not match the stored test metrics
@@ -54,14 +54,14 @@ Each of the 105 existing fits SHALL be refit once from its stored hyperparameter
 
 #### Scenario: A workflow that does not reproduce is not given a score
 - **WHEN** the refit does not match on either attempt
-- **THEN** its average precision is not reproducible and the existing per-fit file is unchanged
+- **THEN** its PR AUC is not reproducible and the existing per-fit file is unchanged
 
 ### Requirement: Paired split differences are reported
-For every fitted model and arm, the report SHALL list the five per-split differences from the radial SVM with no resampling, for balanced accuracy, ROC AUC, and average precision, with the mean and standard deviation of each set. The report SHALL state that the score cut of 6.5 is the fixed definition of high for qualities 7 and 8 and was not tuned, and that each cross-validation fold refits the score model before that cut is applied.
+For every fitted model and arm, the report SHALL list the five per-split differences from the radial SVM with no resampling, for balanced accuracy, ROC AUC, and PR AUC, with the mean and standard deviation of each set. The report SHALL state that the score cut of 6.5 is the fixed definition of high for qualities 7 and 8 and was not tuned, and that each cross-validation fold refits the score model before that cut is applied.
 
 #### Scenario: The report compares each arm on the same splits
 - **WHEN** the report is built from the saved per-seed metrics
-- **THEN** every model and arm has five paired differences, their mean, and their sd on balanced accuracy, ROC AUC, and average precision
+- **THEN** every model and arm has five paired differences, their mean, and their sd on balanced accuracy, ROC AUC, and PR AUC
 
 ### Requirement: The existing protocol and graded files stay
 The five seeds 2021–2025, the stratified 80/20 splits, the training-only 10 by 10, balanced-accuracy selection, and one test score SHALL stay. Existing grids, including both SVMs, SHALL stay. This change SHALL NOT edit `main.pdf`, the graded conclusion, `fit.R`, or `utils/recipes/step_recipe.R`.

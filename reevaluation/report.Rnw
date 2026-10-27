@@ -28,7 +28,7 @@ run <- readRDS(file.path(results_dir, "run.rds"))
 run_added <- readRDS(file.path(results_dir, "run_added.rds"))
 run_pr <- readRDS(file.path(results_dir, "run_pr_original.rds"))
 if (nrow(pr_original) != 105 || any(pr_original$pr_status != "ok")) {
-  stop("Original average precision was not reproduced for every fit")
+  stop("Original PR AUC was not reproduced for every fit")
 }
 original$cohort <- "original"
 original <- original %>%
@@ -36,7 +36,7 @@ original <- original %>%
     dplyr::select(pr_original, model, arm, seed, pr_auc, pr_status),
     by = c("model", "arm", "seed")
   )
-if (any(is.na(original$pr_auc))) stop("An original fit is missing average precision")
+if (any(is.na(original$pr_auc))) stop("An original fit is missing PR AUC")
 original$pred_saved <- TRUE
 if (!"precision" %in% names(original)) original$precision <- NA_real_
 if (!"recall" %in% names(original)) original$recall <- NA_real_
@@ -89,8 +89,18 @@ by_arm <- metrics %>%
     .groups = "drop"
   ) %>%
   arrange(desc(mean_ba))
+guess_counts <- lapply(sort(unique(baseline$seed)), function(seed) {
+  test <- readRDS(file.path(results_dir, "pr_original", sprintf("svm_radial__none__%d.rds", seed)))$test
+  c(high = sum(test$quality == "high"), n = nrow(test))
+})
+guess_high <- vapply(guess_counts, function(x) x[["high"]], numeric(1))
+guess_n <- vapply(guess_counts, function(x) x[["n"]], numeric(1))
+if (length(unique(guess_high)) != 1 || length(unique(guess_n)) != 1) {
+  stop("The test share of high is not the same on every split")
+}
+guess_pr <- guess_high[[1]] / guess_n[[1]]
 guess_row <- baseline %>%
-  mutate(pr_auc = run_pr$guess_low_pr_auc) %>%
+  mutate(pr_auc = guess_pr) %>%
   group_by(model, model_name, arm) %>%
   summarise(
     cohort = "baseline",
@@ -160,7 +170,7 @@ paired_table <- function(column) {
 hours <- run$wall_seconds / 3600
 added_hours <- run_added$wall_seconds / 3600
 cat(sprintf(
-  "This note is a re-evaluation of the red-wine classifiers. It is not the graded conclusion, and the numbers below are not Table 3.1.\n\nFive stratified 80/20 splits, seeds %s, each scored once. Grid points are chosen by %d by %d cross-validated balanced accuracy, with high quality as the event. A row beats guessing low only when every split does. The original fit took %.2f hours on %d cores.\n\nThe added LightGBM, fuller XGBoost, and score-model fits are %d outer jobs. That run took %.2f hours on %d cores. The planning estimate was 2.15 hours.\n\nAverage precision for the original 105 fits is one refit of each stored workflow on that seed's training split. The 10 by 10 was not run again. The refit took %.3f seconds on %d cores. %d of 105 matched the stored ROC AUC, balanced accuracy, accuracy, and confusion counts exactly on the first refit, and the other %d matched exactly on the original L'Ecuyer stream. None were left unreproduced.\n",
+  "This note is a re-evaluation of the red-wine classifiers. It is not the graded conclusion, and the numbers below are not Table 3.1.\n\nFive stratified 80/20 splits, seeds %s, each scored once. Grid points are chosen by %d by %d cross-validated balanced accuracy, with high quality as the event. A row beats guessing low only when every split does. The original fit took %.2f hours on %d cores.\n\nThe added LightGBM, fuller XGBoost, and score-model fits are %d outer jobs. That run took %.2f hours on %d cores. The planning estimate was 2.15 hours.\n\nPR AUC for the original 105 fits is one refit of each stored workflow on that seed's training split. The 10 by 10 was not run again. The refit took %.3f seconds on %d cores. %d of 105 matched the stored ROC AUC, balanced accuracy, accuracy, and confusion counts exactly on the first refit, and the other %d matched exactly on the original L'Ecuyer stream. None were left unreproduced.\n",
   paste(run$seeds, collapse = ", "),
   run$v,
   run$repeats,
@@ -173,6 +183,11 @@ cat(sprintf(
   run_pr$cores,
   run_pr$first_exact,
   run_pr$lecuyer_matched
+))
+cat(sprintf(
+  "\nGuess low has no ranking, so its PR AUC is the test-set share of high, %d/%d, not yardstick's constant-score trapezoid from (recall 0, precision 1).\n",
+  guess_high[[1]],
+  guess_n[[1]]
 ))
 @
 
@@ -220,7 +235,7 @@ knitr::kable(
   shown,
   format = "latex",
   booktabs = TRUE,
-  caption = "Test metrics across the five splits. Means, and the balanced-accuracy SD and minimum. Average precision for the original fits is from the one-shot refit. Guess low has no ranking; its average precision is the constant-score value. Precision and recall for the original fits are from the saved confusion counts. High quality is the positive class."
+  caption = "Test metrics across the five splits. Means, and the balanced-accuracy SD and minimum. PR AUC for the original fits is from the one-shot refit. Guess low has no ranking; its PR AUC is the test-set share of high. Precision and recall for the original fits are from the saved confusion counts. High quality is the positive class."
 ) %>%
   kable_styling(font_size = 8, latex_options = "scale_down")
 @
@@ -228,7 +243,7 @@ knitr::kable(
 Each difference below is that model and arm minus the radial SVM with no resampling, on the same split.
 The five columns are seeds 2021 to 2025.
 The standard deviation is the sample standard deviation of those five differences.
-Average precision is available for every fitted arm: the original fits use the one-shot refit, and the added fits use the probabilities saved with the fit.
+PR AUC is available for every fitted arm: the original fits use the one-shot refit, and the added fits use the probabilities saved with the fit.
 
 <<paired-ba, results="asis">>=
 knitr::kable(
@@ -255,7 +270,7 @@ knitr::kable(
   paired_table("d_pr"),
   format = "latex",
   booktabs = TRUE,
-  caption = "Paired difference in test average precision against the radial SVM with no resampling. Positive means higher than that SVM on the same split."
+  caption = "Paired difference in test PR AUC against the radial SVM with no resampling. Positive means higher than that SVM on the same split."
 ) %>%
   kable_styling(font_size = 8, latex_options = "scale_down")
 @
