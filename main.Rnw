@@ -45,8 +45,8 @@
 }
 \begin{document}
 
-    <<setup, echo=FALSE, cache=FALSE >>=
-    library(knitr)
+    <<setup, echo=FALSE, message=FALSE, warning=FALSE, cache=FALSE >>=
+    source("libraries.R")
     @
 
     \maketitle

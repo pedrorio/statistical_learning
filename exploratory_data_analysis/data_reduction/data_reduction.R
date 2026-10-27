@@ -1,5 +1,4 @@
 ## ---- setup_in_data_reduction
-invisible(source("../../libraries.R", chdir = TRUE))
 
 ## ---- load_recoded_data_in_data_reduction
 data <- load_recoded_data("../../data/winequality-red.csv", "quality")

@@ -1,5 +1,5 @@
 nb <- list(
-        model = discrim::naive_Bayes(Laplace = tune::tune(), smoothness = tune::tune()) %>% 
+        model = parsnip::naive_Bayes(Laplace = tune::tune(), smoothness = tune::tune()) %>% 
                 parsnip::set_engine("klaR") %>% 
                 parsnip::set_mode("classification"),
         name = "Naive bayes",

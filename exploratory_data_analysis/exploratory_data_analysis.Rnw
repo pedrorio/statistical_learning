@@ -1,5 +1,5 @@
 <<exploratory_data_analysis_parent, echo=FALSE, cache=FALSE>>=
-set_parent('main.rnw')
+set_parent('main.Rnw')
 @
 
 \subsection{Data description}\label{subsec:data-description}

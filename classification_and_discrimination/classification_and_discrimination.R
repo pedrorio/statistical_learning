@@ -1,26 +1,7 @@
 ## ---- setup_data_in_classification_and_discrimination
-invisible(source("../libraries.R", chdir = TRUE))
 
 ## ---- fits_in_classification_and_discrimination
-# new_fits
-file <- "../results/classification_and_discrimination_fits.Rda"
-if (file.exists(file)) {
-  fits <- readRDS(file)
-} else {
-	data <- load_recoded_data("../data/winequality-red.csv", "quality")
-	data_split <- rsample::initial_split(data, prop = .8)
-	train_data <- rsample::training(data_split)
-	test_data  <- rsample::testing(data_split)
-	training_folds <- rsample::vfold_cv(train_data, v = 10, repeats = 10, strata = quality)
-	metrics <- yardstick::metric_set(yardstick::accuracy)
-	selection_metric <- "accuracy"
-	fits <- 
-		list(model_config=model_specs, recipe_config=recipe_specs(train_data, "quality")) %>%
-		purrr::cross() %>%
-		purrr::map(~pipeline(.$model_config, .$recipe_config, metrics, selection_metric, training_folds, train_data, data_split))
-  		# furrr::future_map(~pipeline(.$model_config, .$recipe_config, metrics, selection_metric, training_folds, train_data, data_split))
-  	saveRDS(fits, file)
-}
+fits <- read_fit_summaries("../results/fits")
 
 
 

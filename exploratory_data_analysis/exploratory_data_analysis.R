@@ -1,5 +1,4 @@
 ## ---- setup_in_the_exploratory_data_analysis
-invisible(source("../libraries.R", chdir = TRUE))
 
 ## ---- load_recoded_data_and_compute_recoded_scores_in_the_exploratory_data_analysis
 data <- load_recoded_data("../data/winequality-red.csv", "quality")

@@ -11,7 +11,7 @@ get_recoded_winsorised_pca_recipe <- function(recoded_data, outcome_variable) {
 	recipes::step_pca(
 		recipes::all_numeric(),
 		threshold = .8, 
-		options = c(retx = TRUE, scale. = TRUE, center = TRUE)
+		options = list(retx = TRUE, scale. = TRUE, center = TRUE)
 	)
 
 	return(spca_recipe)

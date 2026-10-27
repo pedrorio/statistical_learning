@@ -7,7 +7,7 @@ step_winsorise_new <- function(
   outcome_column_name = NULL,
   id = NULL
   ) {
-  recipes::step("winsorise", 
+  recipes::step("winsorise",
     terms = terms,
     role = role,
     skip = skip,
@@ -19,8 +19,8 @@ step_winsorise_new <- function(
 }
 
 step_winsorise <- function(
-  recipe, 
-  ..., 
+  recipe,
+  ...,
   role    = NA,
   skip    = FALSE,
   trained = FALSE,
@@ -29,9 +29,9 @@ step_winsorise <- function(
   id = recipes::rand_id("winsorise")
   ) {
   recipes::add_step(
-    recipe, 
+    recipe,
     step_winsorise_new(
-      terms = recipes::ellipse_check(...), 
+      terms = rlang::enquos(...),
       role    = role,
       skip    = skip,
       trained = trained,
@@ -43,19 +43,18 @@ step_winsorise <- function(
 }
 
 prep.step_winsorise <- function(x, training, info = NULL, ...) {
-  predictor_col_names <- recipes::terms_select(info = info, x$terms)
-  outcome_col_names <- recipes::terms_select(info = info, recipes::all_outcomes())
-  outcome_col_name <- outcome_col_names[1]
+  predictor_col_names <- recipes::recipes_eval_select(x$terms, training, info)
+  outcome_col_name <- info$variable[info$role == "outcome"][1]
 
-    step_winsorise_new(
-      terms   = x$terms,
-      role    = x$role,
-      skip    = x$skip,
-      trained = TRUE,
-      predictor_column_names = predictor_col_names,
-      outcome_column_name = outcome_col_name,
-      id = x$id
-    )
+  step_winsorise_new(
+    terms   = x$terms,
+    role    = x$role,
+    skip    = x$skip,
+    trained = TRUE,
+    predictor_column_names = predictor_col_names,
+    outcome_column_name = outcome_col_name,
+    id = x$id
+  )
 }
 
 bake.step_winsorise <- function(object, new_data, info = NULL, ...) {
@@ -65,11 +64,11 @@ bake.step_winsorise <- function(object, new_data, info = NULL, ...) {
 
   for (i in outcome_classes) {
     selection <- new_data[[object$outcome_column_name]] == i
-     new_data[selection, column_names] <- 
+     new_data[selection, column_names] <-
       robustHD::winsorize(
-        old_data[selection, column_names], 
-        standardized = FALSE, 
-        centerFun = median, 
+        old_data[selection, column_names],
+        standardized = FALSE,
+        centerFun = median,
         prob = 0.999
       )
   }
@@ -77,7 +76,10 @@ bake.step_winsorise <- function(object, new_data, info = NULL, ...) {
 }
 
 print.step_winsorise <- function(x, width = max(20, options()$width - 30), ...) {
-  cat("Winsorising ", sep = "")
-  printer(untr_obj = x$terms, tr_obj = x$predictor_column_names, trained = x$trained, width = width)
+  cat("Winsorising\n")
   invisible(x)
 }
+
+registerS3method("prep", "step_winsorise", prep.step_winsorise)
+registerS3method("bake", "step_winsorise", bake.step_winsorise)
+registerS3method("print", "step_winsorise", print.step_winsorise)

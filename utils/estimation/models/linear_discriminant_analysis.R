@@ -1,5 +1,5 @@
 lda <- list(
-		model = discrim::discrim_linear(penalty = tune::tune()) %>%
+		model = parsnip::discrim_linear(penalty = tune::tune()) %>%
 			    parsnip::set_engine("mda") %>% 
 			    parsnip::set_mode("classification"),
 		name = "Linear discriminant analysis",
