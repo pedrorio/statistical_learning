@@ -26,3 +26,7 @@
 ## 6. Average precision for the original fits
 
 - [x] 6.1 Without rerunning the 10 by 10, refit each of the 105 finalized workflows once on its outer training split from the stored hyperparameters and cut-off. Save the test probabilities and average precision in new files. On every refit, recompute ROC AUC, balanced accuracy, accuracy, and the confusion counts at the stored cut-off and compare them with the stored metrics. Retry any mismatch on the original L'Ecuyer stream. If it still does not reproduce, mark average precision as `not reproducible`. Leave the existing per-fit files, their stored metrics, and `main.pdf` unchanged.
+
+## 7. Paired differences
+
+- [x] 7.1 From the saved per-seed metrics, report the paired per-split differences against the radial SVM with no resampling for balanced accuracy, ROC AUC, and average precision. State that the 6.5 score cut is the fixed definition of high and that each CV fold refits the score model before that cut is applied. Render the report and leave `main.pdf` unchanged.

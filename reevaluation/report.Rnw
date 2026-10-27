@@ -1,5 +1,5 @@
 \documentclass{article}
-\usepackage{booktabs,longtable,graphicx,array}
+\usepackage{booktabs,longtable,graphicx,array,url}
 \usepackage[margin=0.75in]{geometry}
 \begin{document}
 
@@ -117,6 +117,43 @@ show_num <- function(unsupported, value) {
   ifelse(unsupported, "unsupported", fmt(value))
 }
 failed <- metrics %>% filter(status != "ok")
+ref_arm <- metrics %>%
+  filter(model == "svm_radial", arm == "none") %>%
+  transmute(seed, ref_ba = bal_accuracy, ref_roc = roc_auc, ref_pr = pr_auc)
+if (nrow(ref_arm) != 5) stop("The radial SVM reference is not five splits")
+paired <- metrics %>%
+  inner_join(ref_arm, by = "seed") %>%
+  mutate(
+    d_ba = bal_accuracy - ref_ba,
+    d_roc = roc_auc - ref_roc,
+    d_pr = pr_auc - ref_pr
+  )
+if (nrow(paired) != 140 || anyNA(paired$d_pr)) {
+  stop("A paired difference is missing")
+}
+paired_seeds <- sort(unique(paired$seed))
+paired_table <- function(column) {
+  rows <- paired %>%
+    group_by(model_name, arm) %>%
+    summarise(
+      mean_ba = mean(bal_accuracy),
+      diff = list(.data[[column]][order(seed)]),
+      .groups = "drop"
+    ) %>%
+    arrange(desc(mean_ba))
+  mat <- do.call(rbind, rows$diff)
+  if (ncol(mat) != length(paired_seeds)) stop("A paired difference is not five splits")
+  shown <- tibble::tibble(
+    Model = rows$model_name,
+    Arm = label_arm(rows$arm)
+  )
+  for (j in seq_along(paired_seeds)) {
+    shown[[as.character(paired_seeds[[j]])]] <- sprintf("%+.4f", mat[, j])
+  }
+  shown$Mean <- sprintf("%+.4f", rowMeans(mat))
+  shown$SD <- sprintf("%.4f", apply(mat, 1, stats::sd))
+  shown
+}
 @
 
 <<results, results="asis">>=
@@ -139,6 +176,31 @@ cat(sprintf(
 ))
 @
 
+The 6.5 cut on the score models is the fixed definition of high inside the 10 by 10, and it was not tuned.
+A true quality of 7 or 8 is high, and a predicted score of at least 6.5 is called high
+(\path{reevaluation/metrics.R} lines 105--106).
+The cut is the literal 6.5 in that function, not a grid parameter.
+The grid search selects on that rule
+(\path{reevaluation/fit_reevaluation.R} lines 423--434).
+After a candidate is selected, a separate cut is chosen from out-of-fold scores only
+(\path{reevaluation/fit_reevaluation.R} line 453) and applied once to the test set.
+
+Each of those cross-validation folds refits the score model before the 6.5 rule is applied.
+\path{tune_grid} receives the 100 folds.
+tune 2.1.0 loops one resample at a time by default
+(\path{R/parallel.R} lines 355--356 and 403--407;
+the rows are split in \path{R/tune_grid_loop.R} line 38).
+Each call takes that fold's split
+(\path{R/loop_over_all_stages.R} line 28),
+fits the workflow on its analysis data
+(\path{R/loop_over_all_stages.R} line 139,
+\path{R/loop_over_all_stages-helpers.R} line 357,
+workflows 1.3.0 \path{R/fit.R} line 201),
+and only then scores the assessment predictions
+(\path{R/loop_over_all_stages.R} line 466), which is where 6.5 is applied.
+The selected workflow is refit on each fold again before the out-of-fold cut
+(\path{reevaluation/fit_reevaluation.R} lines 437--446).
+
 <<ba-table, results="asis">>=
 shown <- by_arm %>%
   transmute(
@@ -159,6 +221,41 @@ knitr::kable(
   format = "latex",
   booktabs = TRUE,
   caption = "Test metrics across the five splits. Means, and the balanced-accuracy SD and minimum. Average precision for the original fits is from the one-shot refit. Guess low has no ranking; its average precision is the constant-score value. Precision and recall for the original fits are from the saved confusion counts. High quality is the positive class."
+) %>%
+  kable_styling(font_size = 8, latex_options = "scale_down")
+@
+
+Each difference below is that model and arm minus the radial SVM with no resampling, on the same split.
+The five columns are seeds 2021 to 2025.
+The standard deviation is the sample standard deviation of those five differences.
+Average precision is available for every fitted arm: the original fits use the one-shot refit, and the added fits use the probabilities saved with the fit.
+
+<<paired-ba, results="asis">>=
+knitr::kable(
+  paired_table("d_ba"),
+  format = "latex",
+  booktabs = TRUE,
+  caption = "Paired difference in test balanced accuracy against the radial SVM with no resampling. Positive means higher than that SVM on the same split."
+) %>%
+  kable_styling(font_size = 8, latex_options = "scale_down")
+@
+
+<<paired-roc, results="asis">>=
+knitr::kable(
+  paired_table("d_roc"),
+  format = "latex",
+  booktabs = TRUE,
+  caption = "Paired difference in test ROC AUC against the radial SVM with no resampling. Positive means higher than that SVM on the same split."
+) %>%
+  kable_styling(font_size = 8, latex_options = "scale_down")
+@
+
+<<paired-pr, results="asis">>=
+knitr::kable(
+  paired_table("d_pr"),
+  format = "latex",
+  booktabs = TRUE,
+  caption = "Paired difference in test average precision against the radial SVM with no resampling. Positive means higher than that SVM on the same split."
 ) %>%
   kable_styling(font_size = 8, latex_options = "scale_down")
 @

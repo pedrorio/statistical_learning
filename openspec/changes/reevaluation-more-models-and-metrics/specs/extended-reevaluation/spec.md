@@ -56,6 +56,13 @@ Each of the 105 existing fits SHALL be refit once from its stored hyperparameter
 - **WHEN** the refit does not match on either attempt
 - **THEN** its average precision is not reproducible and the existing per-fit file is unchanged
 
+### Requirement: Paired split differences are reported
+For every fitted model and arm, the report SHALL list the five per-split differences from the radial SVM with no resampling, for balanced accuracy, ROC AUC, and average precision, with the mean and standard deviation of each set. The report SHALL state that the score cut of 6.5 is the fixed definition of high for qualities 7 and 8 and was not tuned, and that each cross-validation fold refits the score model before that cut is applied.
+
+#### Scenario: The report compares each arm on the same splits
+- **WHEN** the report is built from the saved per-seed metrics
+- **THEN** every model and arm has five paired differences, their mean, and their sd on balanced accuracy, ROC AUC, and average precision
+
 ### Requirement: The existing protocol and graded files stay
 The five seeds 2021–2025, the stratified 80/20 splits, the training-only 10 by 10, balanced-accuracy selection, and one test score SHALL stay. Existing grids, including both SVMs, SHALL stay. This change SHALL NOT edit `main.pdf`, the graded conclusion, `fit.R`, or `utils/recipes/step_recipe.R`.
 
